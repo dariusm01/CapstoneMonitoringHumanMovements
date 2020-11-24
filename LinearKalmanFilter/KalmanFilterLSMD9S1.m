@@ -24,11 +24,14 @@ Gyro_dt = ((Time_Gyro(2)-Time_Gyro(1))+(Time_Gyro(3)-Time_Gyro(2)))/2;
 %% Magnetometer using the LSM9DS1 +/- 4 Gauss 
 % Outputs in micro Gauss
 % 0.14 = sensitivity factor
-MagX = (MagData.MagX*0.14)/1e3;
-MagY = (MagData.MagY*0.14)/1e3;
-MagZ = (MagData.MagZ*0.14)/1e3;
+Mag_X = (MagData.MagX*0.14)/1e3;
+Mag_Y = (MagData.MagY*0.14)/1e3;
+Mag_Z = (MagData.MagZ*0.14)/1e3;
 Time_Mag = (MagData.Time_milliseconds)/1e3;
 Mag_dt = ((Time_Mag(2)-Time_Mag(1))+(Time_Mag(3)-Time_Mag(2)))/2;
+
+%% Calibrated Magnetometer Data
+[MagX, MagY, MagZ] = MagnetometerCalibration(Mag_X, Mag_Y, Mag_Z);
 
 % Magnetic Inclinaton Middletown, PA
 Inclination = 66.27513; % degrees
