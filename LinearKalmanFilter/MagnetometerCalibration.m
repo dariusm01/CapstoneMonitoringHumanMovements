@@ -9,14 +9,18 @@ function [MagXSI, MagYSI, MagZSI] = MagnetometerCalibration(MagX, MagY, MagZ)
     % grid on
 
     %% Hard Iron Correction
-    MagXOffset = (max(MagX)+min(MagX))/2;
-    MagYOffset = (max(MagY)+min(MagY))/2;
-    MagZOffset = (max(MagZ)+min(MagZ))/2;
+%     MagXOffset = (max(MagX)+min(MagX))/2;
+%     MagYOffset = (max(MagY)+min(MagY))/2;
+%     MagZOffset = (max(MagZ)+min(MagZ))/2;
 
-    % % From magcal() function
-    % MagXOffset = 0.1681;
-    % MagYOffset = -0.0045;
-    % MagZOffset = -0.3528;
+    D  = [MagX MagY MagZ];
+
+    % b is correction vector for the hard-iron effect, returned as a 3-by-1 array.
+    [~,b,~] = magcal(D, 'auto');
+    
+    MagXOffset = b(1);
+    MagYOffset = b(2);
+    MagZOffset = b(3);
 
     MagXHI = MagX-MagXOffset;
     MagYHI = MagY-MagYOffset;
