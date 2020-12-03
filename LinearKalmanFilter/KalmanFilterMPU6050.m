@@ -21,9 +21,15 @@ AccelX = MeasuredData.AcX/16384;  AccelY = MeasuredData.AcY/16384;  AccelZ = Mea
 % Accelerometer Sample Rate = 1 kHz
 
 GyroX = MeasuredData.GyX/131;   GyroY = MeasuredData.GyY/131;   GyroZ = MeasuredData.GyZ/131;
+ 
 % Dividing by 131 to get +/- 250deg/sec via data sheet
 % Gyroscope Sample Rate, Fast = 8 kHz
 % Gyroscope Sample Rate, Slow = 1 kHz
+
+%% Simple form of calibration by removing the mean values
+AccelX = AccelX - mean(AccelX); AccelY = AccelY - mean(AccelY); AccelZ = AccelZ - mean(AccelZ);
+
+GyroX  = GyroX - mean(GyroX);   GyroY  = GyroY - mean(GyroY);   GyroZ  = GyroZ - mean(GyroZ); 
 
 % Data sheet says I^2C Operating Frequency all registers, Standard-mode =
 % 100 kHz
