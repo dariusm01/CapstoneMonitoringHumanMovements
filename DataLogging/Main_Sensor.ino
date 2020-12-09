@@ -44,7 +44,7 @@ void setup() {
   Serial.begin(115200);
   Serial.println("Initializing Board...");
   
-  //Setting pin 13 as an output to control the onboard LED
+  //Setting the PWM channel settings and attaching BoardLED to the channel
   ledcSetup(ledChannel,freq,resolution);
   ledcAttachPin(BoardLED,ledChannel);
 
@@ -61,8 +61,8 @@ void setup() {
 void loop() {
   //Checking the state
   switch(curr_state){
+    //Standby state is waiting for sensor to 
     case STANDBY :
-
       //Was the Sensor in deep sleep? (Powered off)
       if(wasAsleep){
         print_wakeup_reason();
@@ -71,16 +71,35 @@ void loop() {
       }
       //Checking for Button Presses
       if(touchRead(powerPin) < pinTouch){
-        //What press was this?
+        //The power pin has detected a touch and will now determine what type of press
         pressType = buttonPress(millis(),powerPin);
+        switch(pressType){
+          case 1:
+            Serial.println("Battery Level Requested");
+            break;
+          case 2:
+            //Putting ESP32 to sleep to save power while 'off'
+            curr_state = SLEEP;
+            break;
+        }
       }
       else if(touchRead(wirelessPin) < pinTouch){
+        //The wireless pin has detected a touch and will now determine what type of press
         pressType = buttonPress(millis(), wirelessPin);
+        switch(pressType){
+          case 1:
+            Serial.println("Scanning for sensors to pair to");
+            curr_state = PAIR;
+            break;
+          case 2:
+            //Putting ESP32 to sleep to save power while 'off'
+            Serial.println("Starting to Datalog");
+            curr_state = DATA_LOG;
+            break;
+        }
       }
       delay(50); //this is so the loop doesnt keep running at full speed during standby
       break;
- 
-    
     case SLEEP : 
       curr_state = STANDBY;
       wasAsleep = true;
@@ -89,6 +108,12 @@ void loop() {
       esp_sleep_enable_touchpad_wakeup();
       Serial.println("Entering Sleep Mode");
       esp_deep_sleep_start(); 
+      break;
+    case PAIR :
+      //Code
+      break;
+    case DATA_LOG :
+      //Code
       break;   
   }
   
@@ -175,7 +200,6 @@ void print_wakeup_touchpad(){
     default : Serial.println("Wakeup not by touchpad"); break;
   }
 }
-
 
 //Not going to use these because if held it will cause an error, but I need them
 void callback(){
