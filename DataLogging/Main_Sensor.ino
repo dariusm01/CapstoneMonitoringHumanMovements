@@ -1,3 +1,12 @@
+//
+#include <EEPROM.h>
+
+#define EEPROM_SIZE 64
+
+//global Integers for EEPROM
+static const int EP_SET = 0;
+static const int EP_S1  = 1;
+static const int EP_S2 = 2;
 
 //Defining the States that the Sensor can be in
 //START: is the state when the board has just started and is setting up pins, structs and objects
@@ -42,7 +51,13 @@ const int resolution = 8;
 void setup() {
   //Start the serial monitor
   Serial.begin(115200);
+  delay(1000);
   Serial.println("Initializing Board...");
+  
+  EEPROM.begin(EEPROM_SIZE);
+
+  const uint16_t session = session_count();
+  Serial.println("Device Session Number: " + session);
   
   //Setting the PWM channel settings and attaching BoardLED to the channel
   ledcSetup(ledChannel,freq,resolution);
@@ -65,6 +80,8 @@ void loop() {
     case STANDBY :
       //Was the Sensor in deep sleep? (Powered off)
       if(wasAsleep){
+        //this will never run
+        //Save something to the EEPROM
         print_wakeup_reason();
         print_wakeup_touchpad();
         wasAsleep = false;
@@ -107,6 +124,7 @@ void loop() {
       //Nothing after this line will be called in this case statement
       esp_sleep_enable_touchpad_wakeup();
       Serial.println("Entering Sleep Mode");
+      Serial.println(millis());
       esp_deep_sleep_start(); 
       break;
     case PAIR :
@@ -160,6 +178,41 @@ uint8_t buttonPress(unsigned long start, const int pin){
   Serial.println("Rejected Press");
   return 0;
 }
+
+/*
+ * Description: Will determine the session number of the device. If the session is not set, it will set it.
+ *              Uses the first three bytes of EEPROM: 0,1,2
+ * 
+ * Input: 
+ *        EEPROM 0: If set - 1
+ *        EEPROM 1: 
+ *        EEPROM 2:
+ * 
+ * Output: 
+ *        unsigned 16 bit integer of the session number
+ */
+uint16_t session_count(){
+  uint16_t s = 1;                                                   //local var for session number
+  
+  if(byte(EEPROM.read(EP_SET)) == 1){                               //is the session saved in EEPROM set?
+     s = byte(EEPROM.read(EP_S1))<<8 + byte(EEPROM.read(EP_S2));    //Setting session number: s = S1,S2
+     if(byte(EEPROM.read(EP_S2)) == 255){                           //Checking if S2 will overflow
+      EEPROM.write(EP_S1,byte(EEPROM.read(EP_S1))+1);               //Write: Add 1 to S1 because of overflow
+      EEPROM.write(EP_S2,0);                                        //Write: S2 to 0
+     }
+     else{                                                          //No Overflow in S2
+      EEPROM.write(EP_S2,byte(EEPROM.read(EP_S2))+1);               //Write: Add 1 to S2
+     }
+  }
+  else{                                                             //Not set
+    EEPROM.write(EP_S1,0);                                          //Write S1 to 0
+    EEPROM.write(EP_S2,1);                                          //Write S2 to 1
+    EEPROM.write(EP_SET,1);                                         //Setting set
+  }
+  EEPROM.commit();                                                  //saving session info
+  return s;                                                         //returning session
+}
+
 
 /*
 Method to print the reason by which ESP32
