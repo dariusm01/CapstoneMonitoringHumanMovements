@@ -57,7 +57,8 @@ void setup() {
   EEPROM.begin(EEPROM_SIZE);
 
   const uint16_t session = session_count();
-  Serial.println("Device Session Number: " + session);
+  Serial.print("Device Session Number: ");
+  Serial.println(session);
   
   //Setting the PWM channel settings and attaching BoardLED to the channel
   ledcSetup(ledChannel,freq,resolution);
@@ -195,7 +196,13 @@ uint16_t session_count(){
   uint16_t s = 1;                                                   //local var for session number
   
   if(byte(EEPROM.read(EP_SET)) == 1){                               //is the session saved in EEPROM set?
-     s = byte(EEPROM.read(EP_S1))<<8 + byte(EEPROM.read(EP_S2));    //Setting session number: s = S1,S2
+    Serial.print("S1: ");
+    Serial.println(byte(EEPROM.read(EP_S1)));
+    Serial.print("S2: ");
+    Serial.println(byte(EEPROM.read(EP_S2)));
+     s = byte(EEPROM.read(EP_S1));
+     s = s<<8;
+     s = s + byte(EEPROM.read(EP_S2));                                  //Setting session number: s = S1,S2
      if(byte(EEPROM.read(EP_S2)) == 255){                           //Checking if S2 will overflow
       EEPROM.write(EP_S1,byte(EEPROM.read(EP_S1))+1);               //Write: Add 1 to S1 because of overflow
       EEPROM.write(EP_S2,0);                                        //Write: S2 to 0
@@ -210,6 +217,7 @@ uint16_t session_count(){
     EEPROM.write(EP_SET,1);                                         //Setting set
   }
   EEPROM.commit();                                                  //saving session info
+  Serial.println(s);
   return s;                                                         //returning session
 }
 
