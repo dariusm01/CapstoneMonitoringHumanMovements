@@ -53,7 +53,8 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
   Serial.println("Initializing Board...");
-  
+
+  //Initializing EEORM
   EEPROM.begin(EEPROM_SIZE);
 
   const uint16_t session = session_count();
@@ -81,8 +82,8 @@ void loop() {
     case STANDBY :
       //Was the Sensor in deep sleep? (Powered off)
       if(wasAsleep){
-        //this will never run
-        //Save something to the EEPROM
+                                                    //this will never run
+                                                    //Save something to the EEPROM
         print_wakeup_reason();
         print_wakeup_touchpad();
         wasAsleep = false;
@@ -112,6 +113,8 @@ void loop() {
           case 2:
             //Putting ESP32 to sleep to save power while 'off'
             Serial.println("Starting to Datalog");
+            //Start IMU
+            //Generate IMU Files
             curr_state = DATA_LOG;
             break;
         }
@@ -119,13 +122,10 @@ void loop() {
       delay(50); //this is so the loop doesnt keep running at full speed during standby
       break;
     case SLEEP : 
-      curr_state = STANDBY;
-      wasAsleep = true;
       delay(2000);
-      //Nothing after this line will be called in this case statement
       esp_sleep_enable_touchpad_wakeup();
       Serial.println("Entering Sleep Mode");
-      Serial.println(millis());
+      //Nothing after this line will be called in this case statement
       esp_deep_sleep_start(); 
       break;
     case PAIR :
@@ -196,13 +196,9 @@ uint16_t session_count(){
   uint16_t s = 1;                                                   //local var for session number
   
   if(byte(EEPROM.read(EP_SET)) == 1){                               //is the session saved in EEPROM set?
-    Serial.print("S1: ");
-    Serial.println(byte(EEPROM.read(EP_S1)));
-    Serial.print("S2: ");
-    Serial.println(byte(EEPROM.read(EP_S2)));
      s = byte(EEPROM.read(EP_S1));
      s = s<<8;
-     s = s + byte(EEPROM.read(EP_S2));                                  //Setting session number: s = S1,S2
+     s = s + byte(EEPROM.read(EP_S2));                              //Setting session number: s = S1 S2
      if(byte(EEPROM.read(EP_S2)) == 255){                           //Checking if S2 will overflow
       EEPROM.write(EP_S1,byte(EEPROM.read(EP_S1))+1);               //Write: Add 1 to S1 because of overflow
       EEPROM.write(EP_S2,0);                                        //Write: S2 to 0
@@ -217,7 +213,6 @@ uint16_t session_count(){
     EEPROM.write(EP_SET,1);                                         //Setting set
   }
   EEPROM.commit();                                                  //saving session info
-  Serial.println(s);
   return s;                                                         //returning session
 }
 
