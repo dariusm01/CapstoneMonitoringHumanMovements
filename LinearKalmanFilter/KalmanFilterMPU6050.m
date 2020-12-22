@@ -196,7 +196,7 @@ ylabel("Degrees")
 grid on
 hold on 
 plot(time, AngleXKalman)
-legend("Accelerometer Angle Correction (X)", "Kalman Filter Angle (X direction)")
+legend("Accelerometer Angle (X)", "Kalman Filter Angle (X direction)")
 hold off
 
 figure(5)
@@ -207,7 +207,7 @@ ylabel("Degrees")
 grid on
 hold on 
 plot(time, AngleYKalman)
-legend("Accelerometer Angle Correction (Y)","Kalman Filter Angle (Y direction)")
+legend("Accelerometer Angle (Y)","Kalman Filter Angle (Y direction)")
 hold off
 
 %% Plotting Residuals
