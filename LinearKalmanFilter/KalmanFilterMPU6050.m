@@ -12,7 +12,7 @@ GyroX = MeasuredData.GyX/131;   GyroY = MeasuredData.GyY/131;   GyroZ = Measured
 % Noise power spectral density (low noise mode) = 300 µg/√Hz
 
 %% Simple form of calibration by removing the mean values
-AccelX = AccelX - mean(AccelX); AccelY = AccelY - mean(AccelY); AccelZ = AccelZ - mean(AccelZ);
+AccelX = AccelX - mean(AccelX); AccelY = AccelY - mean(AccelY); AccelZ = 1-(AccelZ - mean(AccelZ));
 
 GyroX  = GyroX - mean(GyroX);   GyroY  = GyroY - mean(GyroY);   GyroZ  = GyroZ - mean(GyroZ); 
 
@@ -79,7 +79,7 @@ OmegaZKalman = [];
 AngleXAccelerometer = [];
 AngleYAccelerometer = [];
 
-%% Need the standard deviation and residuals to test evaluate the filter mathematically
+%% Need the standard deviation and residuals to evaluate the filter mathematically
 PosThetaXSTD = [];
 PosThetaYSTD = [];
 
@@ -155,85 +155,85 @@ end
 
 %% Plotting
 
-% figure(1)
-% plot(time, GyroX)
-% title("Gyroscope X Axis");
-% xlabel("Time(s)")
-% ylabel("Degrees/sec")
-% grid on
-% hold on 
-% plot(time, OmegaXKalman)
-% legend("Measured Gyro data (X direction)", "Kalman Filter Gyro data (X direction)")
-% hold off
-% 
-% figure(2)
-% plot(time, GyroY)
-% title("Gyroscope Y Axis");
-% xlabel("Time(s)")
-% ylabel("Degrees/sec")
-% grid on
-% hold on 
-% plot(time, OmegaYKalman)
-% legend("Measured Gyro data (Y direction)", "Kalman Filter Gyro data (Y direction)")
-% hold off
-% 
-% figure(3)
-% plot(time, GyroZ)
-% title("Gyroscope Z Axis");
-% xlabel("Time(s)")
-% ylabel("Degrees/sec")
-% grid on
-% hold on 
-% plot(time, OmegaZKalman)
-% legend("Measured Gyro data (Z direction)", "Kalman Filter Gyro data (Z direction)")
-% hold off
-% 
-% figure(4)
-% plot(time, AngleXAccelerometer)
-% title("Angle X Axis");
-% xlabel("Time(s)")
-% ylabel("Degrees")
-% grid on
-% hold on 
-% plot(time, AngleXKalman)
-% legend("Accelerometer Angle Correction (X)", "Kalman Filter Angle (X direction)")
-% hold off
-% 
-% figure(5)
-% plot(time, AngleYAccelerometer)
-% title("Angle Y Axis");
-% xlabel("Time(s)")
-% ylabel("Degrees")
-% grid on
-% hold on 
-% plot(time, AngleYKalman)
-% legend("Accelerometer Angle Correction (Y)","Kalman Filter Angle (Y direction)")
-% hold off
+figure(1)
+plot(time, GyroX)
+title("Gyroscope X Axis");
+xlabel("Time(s)")
+ylabel("Degrees/sec")
+grid on
+hold on 
+plot(time, OmegaXKalman)
+legend("Measured Gyro data (X direction)", "Kalman Filter Gyro data (X direction)")
+hold off
 
+figure(2)
+plot(time, GyroY)
+title("Gyroscope Y Axis");
+xlabel("Time(s)")
+ylabel("Degrees/sec")
+grid on
+hold on 
+plot(time, OmegaYKalman)
+legend("Measured Gyro data (Y direction)", "Kalman Filter Gyro data (Y direction)")
+hold off
 
+figure(3)
+plot(time, GyroZ)
+title("Gyroscope Z Axis");
+xlabel("Time(s)")
+ylabel("Degrees/sec")
+grid on
+hold on 
+plot(time, OmegaZKalman)
+legend("Measured Gyro data (Z direction)", "Kalman Filter Gyro data (Z direction)")
+hold off
+
+figure(4)
+plot(time, AngleXAccelerometer)
+title("Angle X Axis");
+xlabel("Time(s)")
+ylabel("Degrees")
+grid on
+hold on 
+plot(time, AngleXKalman)
+legend("Accelerometer Angle Correction (X)", "Kalman Filter Angle (X direction)")
+hold off
+
+figure(5)
+plot(time, AngleYAccelerometer)
+title("Angle Y Axis");
+xlabel("Time(s)")
+ylabel("Degrees")
+grid on
+hold on 
+plot(time, AngleYKalman)
+legend("Accelerometer Angle Correction (Y)","Kalman Filter Angle (Y direction)")
+hold off
+
+%% Plotting Residuals
 figure(6)
-plot(time, 3*PosThetaXSTD, 'o')
-title("Angular Position Residuals ThetaX")
+plot(time, 5*PosThetaXSTD, 'ko')
+title("\thetaX Residuals 5\sigma")
 ylabel("Degrees")
 grid on
 hold on
-% plot(time, ResidualThetaX)
-plot(time, -3*PosThetaXSTD, 'o')
+plot(time, ResidualThetaX)
+plot(time, -5*PosThetaXSTD, 'ko')
 hold off
 
 figure(7)
-plot(time, PosThetaYSTD, 'o')
-title("Angular Position Residuals ThetaY")
+plot(time, 5*PosThetaYSTD, 'ko')
+title("\thetaY Residuals 5\sigma")
 ylabel("Degrees")
 grid on
 hold on
-% plot(time, ResidualThetaY)
-plot(time, -1*PosThetaYSTD, 'o')
+plot(time, ResidualThetaY)
+plot(time, -5*PosThetaYSTD, 'ko')
 hold off
 
 figure(8)
 plot(time, 5*SpeedThetaXSTD, 'ko')
-title("\omega X Residuals 5\sigma")
+title("\omegaX Residuals 5\sigma")
 ylabel("Degrees/sec")
 grid on
 hold on
@@ -243,7 +243,7 @@ hold off
 
 figure(9)
 plot(time, 5*SpeedThetaYSTD, 'ko')
-title("\omega Y Residuals 5\sigma")
+title("\omegaY Residuals 5\sigma")
 ylabel("Degrees/sec")
 grid on
 hold on
