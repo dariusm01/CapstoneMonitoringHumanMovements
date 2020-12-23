@@ -12,7 +12,7 @@ GyroX  = GyroX - mean(GyroX);   GyroY  = GyroY - mean(GyroY);   GyroZ  = GyroZ -
 
 time = MeasuredData.Time_sec;
 
-dt = 1/500;
+dt = 1/500; 
  
 % Initial Angle Values (guess)
 ThetaX = 0; ThetaY = 0; ThetaZ = 0; 
@@ -20,8 +20,6 @@ ThetaX = 0; ThetaY = 0; ThetaZ = 0;
 % Initial Gyro Values - it is best to use the first measurement as the
 % value for the observable variables
 OmegaX = GyroX(1); OmegaY = GyroY(1); OmegaZ = GyroZ(1); 
-
-ThetaZMag = zeros(size(GyroZ)); %no magnetometer
 
 
 %% Values we want to plot 
@@ -32,7 +30,7 @@ AngleY = [];
 AccelAngleX = [];
 AccelAngleY = [];
 
-alpha = 0.99;
+alpha = 0.95;
 
 for i = 1:length(time)
 
