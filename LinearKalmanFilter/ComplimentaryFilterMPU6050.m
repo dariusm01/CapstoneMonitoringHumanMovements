@@ -17,10 +17,6 @@ dt = 1/500;
 % Initial Angle Values (guess)
 ThetaX = 0; ThetaY = 0; ThetaZ = 0; 
 
-% Initial Gyro Values - it is best to use the first measurement as the
-% value for the observable variables
-OmegaX = GyroX(1); OmegaY = GyroY(1); OmegaZ = GyroZ(1); 
-
 
 %% Values we want to plot 
 
