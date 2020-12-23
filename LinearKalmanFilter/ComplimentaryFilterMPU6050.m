@@ -15,7 +15,7 @@ time = MeasuredData.Time_sec;
 dt = 1/500; 
  
 % Initial Angle Values (guess)
-ThetaX = 0; ThetaY = 0; ThetaZ = 0; 
+ThetaX = 0; ThetaY = 0;
 
 
 %% Values we want to plot 
@@ -60,7 +60,7 @@ grid on
 hold on
 xlabel("time")
 ylabel("Degrees (°)")
-title("Complimentary Filter \thetaX")
+title("Complimentary Filter \thetaX (Roll)")
 plot(time, AccelAngleX)
 plot(time, GyroX*dt)
 legend("\thetaX Filter", "\thetaX Acclerometer", "\thetaX Gyro")
@@ -74,7 +74,7 @@ grid on
 hold on
 xlabel("time")
 ylabel("Degrees (°)")
-title("Complimentary Filter \thetaY")
+title("Complimentary Filter \thetaY (Pitch)")
 plot(time, AccelAngleY)
 plot(time, GyroY*dt)
 legend("\thetaY Filter", "\thetaY Acclerometer", "\thetaY Gyro")
