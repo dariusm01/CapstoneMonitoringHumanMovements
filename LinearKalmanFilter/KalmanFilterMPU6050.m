@@ -196,7 +196,8 @@ ylabel("Degrees")
 grid on
 hold on 
 plot(time, AngleXKalman)
-legend("Accelerometer Angle (X)", "Kalman Filter Angle (X direction)")
+plot(time, GyroX*dt)
+legend("Accelerometer \thetaX", "Kalman Filter \thetaX", "Gyroscope \thetaX")
 hold off
 
 figure(5)
@@ -207,7 +208,8 @@ ylabel("Degrees")
 grid on
 hold on 
 plot(time, AngleYKalman)
-legend("Accelerometer Angle (Y)","Kalman Filter Angle (Y direction)")
+plot(time, GyroY*dt)
+legend("Accelerometer \thetaY", "Kalman Filter \thetaY", "Gyroscope \thetaY")
 hold off
 
 %% Plotting Residuals
