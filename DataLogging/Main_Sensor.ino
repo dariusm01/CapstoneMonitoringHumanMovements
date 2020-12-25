@@ -1,7 +1,14 @@
-//
+//EPROM Library
 #include <EEPROM.h>
+#include <Wire.h>
+#include <SPI.h>
 
-#define EEPROM_SIZE 64
+//MicroSD Library from ESP32
+#include "FS.h"
+#include "SD.h"
+
+#define EEPROM_SIZE 64    //EEPROM size (1-511)
+#define SD_CS 16          //slave select pin for SD (can be any GPIO)
 
 //global Integers for EEPROM
 static const int EP_SET = 0;
@@ -46,6 +53,27 @@ const int freq = 5000;
 const int ledChannel = 0;
 const int resolution = 8;
 
+//Creating session Global Variable
+uint16_t session;
+
+//Defining structs for file paths
+//Raw data struct
+typedef struct rawDataPath{
+  const char* a_path;           //the file path for the raw accelerometer data
+  const char* g_path;           //the file path for the raw gyroscope data
+  const char* m_path;           //the file path for the raw magnetometer data
+}rawDataPath;                   //naming the struct
+
+typedef struct filePaths{
+  struct rawDataPath raw;
+  String base;
+  const char* t;
+  const char* base_c;
+} filePaths;
+
+//Defining struct
+filePaths path;
+
 
 
 void setup() {
@@ -57,9 +85,21 @@ void setup() {
   //Initializing EEORM
   EEPROM.begin(EEPROM_SIZE);
 
-  const uint16_t session = session_count();
+  session = session_count();
   Serial.print("Device Session Number: ");
   Serial.println(session);
+
+  Serial.println("Generating Folders and Config File");
+  Wire.begin(); //starting wires
+
+  //initialize microSD card module
+  while(!initializeMicroSD()){
+    Serial.println("Something wrong with microSD card or module");
+    Serial.println("Check wiring or if card is present");
+    delay(5000);  //will wait 5 seconds before trying again
+  }
+
+  
   
   //Setting the PWM channel settings and attaching BoardLED to the channel
   ledcSetup(ledChannel,freq,resolution);
@@ -138,6 +178,38 @@ void loop() {
   
 }
 
+boolean baseFileCreate(){
+  //creating directories
+  //create config file
+  return true;
+}
+
+/*
+ * Description: Initalizes the microSD card module. Checks wiring and if card is present
+ * 
+ * Input: NONE
+ * 
+ * Output: Boolean saying if the initalization was completed or not
+ * 
+ */
+boolean initializeMicroSD(){
+  SD.begin(SD_CS);                                            //starting the SD card
+  if(!SD.begin(SD_CS)){                                       //If SD.begin returns a false it means the card failed to mount
+    Serial.println("Card Mount Failed");
+    return false;
+  }
+  uint8_t cardType = SD.cardType();                           //Saving the SD card type into a unsigned int of 8 bits
+  if(cardType == CARD_NONE){                                  //checking if the card type is returning no card
+    Serial.println("No SD card attached");                    //returned no card therefore there is no card
+    return false;
+  }                                                           //Card successful detected
+  Serial.println("Initializing SD card...");
+  if(!SD.begin(SD_CS)){
+    Serial.println("ERROR - SD card initialization failed!");
+    return false;
+  }
+  return true;                                                //successful setup
+}
 
 
 /*
@@ -256,6 +328,48 @@ void print_wakeup_touchpad(){
     default : Serial.println("Wakeup not by touchpad"); break;
   }
 }
+
+void writeFile(fs::FS &fs, const char * path, const char * message){
+    Serial.printf("Writing file: %s\n", path);
+
+    File file = fs.open(path, FILE_WRITE);
+    if(!file){
+        Serial.println("Failed to open file for writing");
+        return;
+    }
+    if(file.print(message)){
+        Serial.println("File written");
+    } else {
+        Serial.println("Write failed");
+    }
+    file.close();
+}
+
+void appendFile(fs::FS &fs,const char * path, const char * message){
+  Serial.printf("Appending to file: %s\n",path);
+  File file = fs.open(path, FILE_APPEND);
+  if(!file){
+    Serial.println("Failed to open file for appending");
+    return;
+  }
+  if(file.print(message)){
+    Serial.println("Message appended");
+  }else{
+    Serial.println("Append failed");
+  }
+  file.close();
+}
+
+void createDir(fs::FS &fs, const char * path){
+    Serial.printf("Creating Dir: %s\n", path);
+    if(fs.mkdir(path)){
+        Serial.println("Dir created");
+    } else {
+        Serial.println("mkdir failed");
+    }
+}
+
+
 
 //Not going to use these because if held it will cause an error, but I need them
 void callback(){
