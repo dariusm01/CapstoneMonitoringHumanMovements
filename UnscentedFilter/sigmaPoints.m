@@ -1,9 +1,6 @@
 function sigmas = sigmaPoints(X,P,alpha)
 
 % Van der Merwe scaled sigma point implementation
-% Need 2n+1 sigma points
-%   - The first is for the mean
-%   - The rest are evenly distributed about the mean
 
 n = length(X);
 
@@ -28,6 +25,6 @@ x = X.';
         sigmas(k+1,:) = x + U(k,:);
         sigmas(n+k+1,:) = x - U(k,:);
     end 
-
+sigmas = sigmas.';
 end
 
