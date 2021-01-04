@@ -1,6 +1,8 @@
 function [Wc, Wm] = weights(X,alpha,beta)
 
-n = length(X);
+dim = size(X);
+
+n = dim(1);
 
 kappa = 3-n;
 
@@ -20,4 +22,7 @@ Wm = Wc;
 % Changing the first weights for the covariance and mean
 Wc(1) = lambda / (n + lambda) + (1 - alpha^2 + beta);
 Wm(1) = lambda / (n + lambda);
+
+Wm = Wm.';
+Wc = Wc.';
 end 

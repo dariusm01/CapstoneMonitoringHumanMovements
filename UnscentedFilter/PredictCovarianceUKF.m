@@ -1,19 +1,9 @@
-function newCov = PredictCovarianceUKF(x0, propagatedPoints, sigmas, yT ,Wc, Q)
-
-% P = zeros(length(x0));
-%     for k = 1:length(sigmas)
-% 
-%         y = sigmas(k,:) - yT;
-% 
-%         P = Wc(k)*outerproduct(y,y) + P;
-%     end
-% 
-% % adding process noise
-% newCov  = P+Q;
-
-
+function newCov = PredictCovarianceUKF(propagatedPoints, sigmas, newPoints ,Wc, Q)
+sigmas = sigmas.';
+dim = size(sigmas);
+x0 = dim(2);
 % Predicted covariance
-col_vec_mean = yT.';
+col_vec_mean = newPoints.';
 
 P = zeros(length(x0));
 
