@@ -1,5 +1,4 @@
-%addpath('/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/UnscentedFilter') 
-
+%% Initializing the states and covariance
 P = eye(6);
 
 states = [0;0;0;0.2253;-.1456;0.4119];
