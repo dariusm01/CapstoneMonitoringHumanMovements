@@ -1,4 +1,4 @@
-addpath('/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/UnscentedFilter') 
+%addpath('/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/UnscentedFilter') 
 
 P = eye(6);
 
