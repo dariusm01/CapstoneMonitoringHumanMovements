@@ -24,6 +24,10 @@ states = [0;0;0;0.2253;-.1456;0.4119];
 
 beta = 2;
 kappa = 3-length(states);
+
+% 0 ≤ α ≤ 1 
+% Larger α spreads the sigma points further from the mean
+
 alpha = 0.1;
 
 %% First, gather sigma points
