@@ -1,4 +1,7 @@
 function newCov = PredictCovarianceUKF(propagatedPoints, sigmas, newPoints ,Wc, Q)
+
+% the value of sigmas isn't important, just need the dimensions of the sigma points
+
 sigmas = sigmas.';
 dim = size(sigmas);
 x0 = dim(2);
