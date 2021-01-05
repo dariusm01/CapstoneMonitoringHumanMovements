@@ -54,13 +54,13 @@ Px = PredictCovarianceUKF(NewPrediction, samplePoints, Mu_x ,Wc, 0);
 
 newSigmaPoints = sigmaPoints(Mu_x,Px,alpha);
 
+propagatedAccel = zeros(3,length(newSigmaPoints));
+
+%% Passing sigma points through non linear measurement model:
+
 % |ax|     | cos(θx)sin(θy) |
 % |ay|  =  |     sin(θx)    |
 % |az|     | -cos(θx)cos(θy)|
-
-propagatedAccel = zeros(3,length(newSigmaPoints));
-
-%% Passing sigma points through non linear measurement model
 
 for i = 1:length(propagatedAccel)
     propagatedAccel(1,i) = cos(newSigmaPoints(1,i))*sin(newSigmaPoints(2,i));
@@ -81,7 +81,7 @@ Mu_z_accel = newMeasurementSigmaPoints*Wm;
 
 %% Measurment covariance
 
-Pz = PredictCovarianceUKF(newMeasurementSigmaPoints, newSigmaPoints, Mu_z_accel ,Wc, 0);
+Pz = PredictCovarianceUKF(newMeasurementSigmaPoints, newSigmaPoints, Mu_z_accel, Wc, 0);
 
 % converting accelerations into angles
 measurementAccels = [accelAngleX(Mu_z_accel); accelAngleY(Mu_z_accel); 0];
@@ -114,17 +114,19 @@ Pxz = CrossCovariance(Mu_x, Mu_z, newSigmaPoints, newMeasurementSigmaPoints, Wc)
 K = Pxz*(Pz)^-1;
 
 %% Compute the posterior using the prior and measurement residual
-Xk = Mu_x + K*(z-Mu_z);
+y = z-Mu_z;
+
+Xk = Mu_x + K*y;
 
 %% Update the covariance
 Pk = Px - K*(Pz)*K.';
 
 %% Repeat for next iteration
-states = Xk;
-P = Pk;
-samplePoints = sigmaPoints(states,P,alpha);
-NewPrediction = firstOrderUKFPropagation(dt, samplePoints, 0);
-[Wc, Wm] = weights(NewPrediction,alpha,beta);
-Mu_x = NewPrediction*Wm; % Prior
-Px = PredictCovarianceUKF(NewPrediction, samplePoints, Mu_x ,Wc, 0);
-newSigmaPoints = sigmaPoints(Mu_x,Px,alpha);
+% states = Xk;
+% P = Pk;
+% samplePoints = sigmaPoints(states,P,alpha);
+% NewPrediction = firstOrderUKFPropagation(dt, samplePoints, 0);
+% [Wc, Wm] = weights(NewPrediction,alpha,beta);
+% Mu_x = NewPrediction*Wm; % Prior
+% Px = PredictCovarianceUKF(NewPrediction, samplePoints, Mu_x ,Wc, 0);
+% newSigmaPoints = sigmaPoints(Mu_x,Px,alpha);
