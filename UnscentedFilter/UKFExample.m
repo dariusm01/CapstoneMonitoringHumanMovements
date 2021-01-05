@@ -28,7 +28,7 @@ kappa = 3-length(states);
 % 0 ≤ α ≤ 1 
 % Larger α spreads the sigma points further from the mean
 
-alpha = 0.1;
+alpha = 0.2;
 
 %% First, gather sigma points
 
@@ -81,19 +81,22 @@ newMeasurementSigmaPoints = zeros(size(newSigmaPoints));
 newMeasurementSigmaPoints(1:3,:) = propagatedAccel;
 newMeasurementSigmaPoints(4:end,:) = newSigmaPoints(4:end,:);  % gyro stays the same
 
-Mu_z_accel = newMeasurementSigmaPoints*Wm;
+%% Converting the measurement sigma points into angles for the cross cov.
+
+for j = 1:length(newMeasurementSigmaPoints)
+    newMeasurementSigmaPoints(1,j) = atan2(newMeasurementSigmaPoints(2,j), sqrt((newMeasurementSigmaPoints(1,j))^2 +...
+        (newMeasurementSigmaPoints(3,j))^2)) * (180/pi);
+    
+    newMeasurementSigmaPoints(2,j) = atan2(-newMeasurementSigmaPoints(1,j), sqrt((newMeasurementSigmaPoints(2,j))^2 +...
+        (newMeasurementSigmaPoints(3,j))^2))* (180/pi);
+    
+    newMeasurementSigmaPoints(3,j) = 0; % assuming the heading is 0 (no mag)
+end 
+
+Mu_z = newMeasurementSigmaPoints*Wm;
 
 %% Measurment covariance
-
-Pz = PredictCovarianceUKF(newMeasurementSigmaPoints, newSigmaPoints, Mu_z_accel, Wc, 0);
-
-% converting accelerations into angles
-measurementAccels = [accelAngleX(Mu_z_accel); accelAngleY(Mu_z_accel); 0];
-
-Mu_z = zeros(size(Mu_z_accel));
-
-Mu_z(1:3) = measurementAccels;
-Mu_z(4:end) = Mu_z_accel(4:end);
+Pz = PredictCovarianceUKF(newMeasurementSigmaPoints, newSigmaPoints, Mu_z, Wc, 0);
 
 % measurements from sensor
 
@@ -103,15 +106,12 @@ sensorReadings = [-0.0008; 0.0002; 0.9955; 0.2253; -0.1456; 0.4119];
 % converting accelerations into angles
 convertedReading = [accelAngleX(sensorReadings); accelAngleY(sensorReadings); 0];
 
-z = zeros(size(Mu_z_accel));
+z = zeros(size(Mu_z));
 
 z(1:3) = convertedReading;
 z(4:end) = sensorReadings(4:end);
 
 %% Cross Covariance
-% Still need to convert newMeasurementSigmaPoints(1:3,:) to angles
-% Units don't match for the measurement
-% Just testing the function to make sure there are no errors
 Pxz = CrossCovariance(Mu_x, Mu_z, newSigmaPoints, newMeasurementSigmaPoints, Wc);
 
 %% Kalman Gain
