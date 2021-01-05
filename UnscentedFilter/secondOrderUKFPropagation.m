@@ -21,5 +21,5 @@ j = size(sigmaPoints);
     
 propagatedPoints = propagatedPoints + wk;
     
-NewPoints = propagatedPoints.';
+NewPoints = propagatedPoints;
 end 
