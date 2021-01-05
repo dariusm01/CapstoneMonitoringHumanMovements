@@ -17,10 +17,40 @@
 %  14. Update the covariance 
 %  15. Repeat for next time step
 
-%% Initializing the states and covariance
-P = eye(6);
+MeasuredData = readtable("SampleData.xlsx");
 
-states = [0;0;0;0.2253;-.1456;0.4119];
+AccelX = MeasuredData.AcX/16384;  AccelY = MeasuredData.AcY/16384;  AccelZ = MeasuredData.AcZ/16384;
+
+GyroX = MeasuredData.GyX/131;   GyroY = MeasuredData.GyY/131;   GyroZ = MeasuredData.GyZ/131;
+
+%% Gyro Noise Specs:
+% Total RMS Noise = 0.1 °/s rms
+% Rate Noise spectral density = 0.01 °/s /√Hz
+
+%% Accelerometer Noise Specs
+% Noise power spectral density (low noise mode) = 300 µg/√Hz
+
+%% Simple form of calibration by removing the mean values
+AccelX = AccelX - mean(AccelX); AccelY = AccelY - mean(AccelY); AccelZ = 1-(AccelZ - mean(AccelZ));
+
+GyroX  = GyroX - mean(GyroX);   GyroY  = GyroY - mean(GyroY);   GyroZ  = GyroZ - mean(GyroZ); 
+
+time = MeasuredData.Time_sec;
+
+% Initial Angle Values - very hard to initialize 
+% and estimate hidden variables 
+ThetaX = 0; ThetaY = 0; ThetaZ = 0; 
+
+% Initial Gyro Values - it is best to use the first measurement as the
+% value for the observable variables
+OmegaX = GyroX(1); OmegaY = GyroY(1); OmegaZ = GyroZ(1); 
+
+ThetaZMag = zeros(size(GyroZ)); %no magnetometer
+
+%% Initializing the states and covariance
+P = 500*eye(6);
+
+states = [ThetaX; ThetaY; ThetaZ; OmegaX; OmegaY; OmegaZ];
 
 beta = 2;
 kappa = 3-length(states);
@@ -124,13 +154,3 @@ Xk = Mu_x + K*y;
 
 %% Update the covariance
 Pk = Px - K*(Pz)*K.';
-
-%% Repeat for next iteration
-% states = Xk;
-% P = Pk;
-% samplePoints = sigmaPoints(states,P,alpha);
-% NewPrediction = firstOrderUKFPropagation(dt, samplePoints, 0);
-% [Wc, Wm] = weights(NewPrediction,alpha,beta);
-% Mu_x = NewPrediction*Wm; % Prior
-% Px = PredictCovarianceUKF(NewPrediction, samplePoints, Mu_x ,Wc, 0);
-% newSigmaPoints = sigmaPoints(Mu_x,Px,alpha);

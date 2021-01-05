@@ -1,4 +1,4 @@
-MeasuredData = readtable("/Users/dariusmensah/Desktop/SampleData.xlsx");    % change to your specific file path
+MeasuredData = readtable("SampleData.xlsx");
 
 AccelX = MeasuredData.AcX/16384;  AccelY = MeasuredData.AcY/16384;  AccelZ = MeasuredData.AcZ/16384;
 

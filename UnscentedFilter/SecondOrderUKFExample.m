@@ -125,13 +125,3 @@ Xk = Mu_x + K*y;
 
 %% Update the covariance
 Pk = Px - K*(Pz)*K.';
-
-%% Repeat for next iteration
-% states = Xk;
-% P = Pk;
-% samplePoints = sigmaPoints(states,P,alpha);
-% NewPrediction = firstOrderUKFPropagation(dt, samplePoints, 0);
-% [Wc, Wm] = weights(NewPrediction,alpha,beta);
-% Mu_x = NewPrediction*Wm; % Prior
-% Px = PredictCovarianceUKF(NewPrediction, samplePoints, Mu_x ,Wc, 0);
-% newSigmaPoints = sigmaPoints(Mu_x,Px,alpha);
