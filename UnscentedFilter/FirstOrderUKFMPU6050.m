@@ -28,8 +28,6 @@ ThetaX = 0; ThetaY = 0; ThetaZ = 0;
 % value for the observable variables
 OmegaX = GyroX(1); OmegaY = GyroY(1); OmegaZ = GyroZ(1); 
 
-ThetaZMag = zeros(size(GyroZ)); %no magnetometer
-
 %% Initializing the states and covariance
 P = eye(6);
 
@@ -41,7 +39,7 @@ kappa = 3-length(states);
 % 0 ≤ α ≤ 1 
 % Larger α spreads the sigma points further from the mean
 
-alpha = 0.9;
+alpha = 0.2;
 
 % AccelSpectralDensity = 300e-6*sqrt(dt);
 % 
@@ -110,15 +108,22 @@ for iii = 1:length(time)
     propagatedAccel = zeros(3,length(newSigmaPoints));
 
     %% Passing sigma points through non linear measurement model:
+    % the measurement function converts the filter’s prior into a measurement
 
     % |ax|     | cos(θx)sin(θy) |
     % |ay|  =  |     sin(θx)    |
     % |az|     | -cos(θx)cos(θy)|
+    
+    % Using the positive version for az since the outout should be +1g
+    
+    % |ax|     | cos(θx)sin(θy) |
+    % |ay|  =  |     sin(θx)    |
+    % |az|     | cos(θx)cos(θy) | 
 
     for i = 1:length(propagatedAccel)
-        propagatedAccel(1,i) = cos(newSigmaPoints(1,i))*sin(newSigmaPoints(2,i));
-        propagatedAccel(2,i) = sin(newSigmaPoints(2,i)); 
-        propagatedAccel(3,i) = -cos(newSigmaPoints(1,i))*cos(newSigmaPoints(2,i));
+        propagatedAccel(1,i) = cosd(newSigmaPoints(1,i))*sind(newSigmaPoints(2,i));
+        propagatedAccel(2,i) = sind(newSigmaPoints(2,i)); 
+        propagatedAccel(3,i) = cosd(newSigmaPoints(1,i))*cosd(newSigmaPoints(2,i));
     end 
 
     % For gyro measurment model, it would be best to use
@@ -130,36 +135,16 @@ for iii = 1:length(time)
     newMeasurementSigmaPoints(1:3,:) = propagatedAccel;
     newMeasurementSigmaPoints(4:end,:) = newSigmaPoints(4:end,:);  % gyro stays the same
 
-    %% Converting the measurement sigma points into angles for the cross cov.
-
-    for j = 1:length(newMeasurementSigmaPoints)
-        newMeasurementSigmaPoints(1,j) = atan2(newMeasurementSigmaPoints(2,j), sqrt((newMeasurementSigmaPoints(1,j))^2 +...
-            (newMeasurementSigmaPoints(3,j))^2)) * (180/pi);
-
-        newMeasurementSigmaPoints(2,j) = atan2(-newMeasurementSigmaPoints(1,j), sqrt((newMeasurementSigmaPoints(2,j))^2 +...
-            (newMeasurementSigmaPoints(3,j))^2))* (180/pi);
-
-        newMeasurementSigmaPoints(3,j) = 0; % assuming the heading is 0 (no mag)
-    end 
-
     Mu_z = newMeasurementSigmaPoints*Wm;
 
     %% Measurment covariance
     Pz = PredictCovarianceUKF(newMeasurementSigmaPoints, newSigmaPoints, Mu_z, Wc, 0);
 
     % measurements from sensor
-
     % (1:3) = accelerometer, (4:6) = gyroscope
     sensorReadings = [AccelX(iii); AccelY(iii); AccelZ(iii); GyroX(iii); GyroY(iii); GyroZ(iii)];
-
-    % converting accelerations into angles
-    convertedReading = [accelAngleX(sensorReadings); accelAngleY(sensorReadings); 0];
-
-    z = zeros(size(Mu_z));
-
-    z(1:3) = convertedReading;
-    z(4:end) = sensorReadings(4:end);
-
+    z = sensorReadings;
+    
     %% Cross Covariance
     Pxz = CrossCovariance(Mu_x, Mu_z, newSigmaPoints, newMeasurementSigmaPoints, Wc);
 
@@ -168,7 +153,8 @@ for iii = 1:length(time)
 
     %% Compute the posterior using the prior and measurement residual
     y = z-Mu_z;
-
+    
+    %% Update the state
     Xk = Mu_x + K*y;
 
     %% Update the covariance
