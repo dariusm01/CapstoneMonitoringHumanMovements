@@ -63,7 +63,7 @@ kappa = 3-length(states);
 % 0 ≤ α ≤ 1 
 % Larger α spreads the sigma points further from the mean
 
-alpha = 0.9;
+alpha = 0.2;
 
 % AccelSpectralDensity = 300e-6*sqrt(dt);
 % 
@@ -76,6 +76,7 @@ alpha = 0.9;
 % Qk(4,4) = GyroSpectralDensity; Qk(5,5) = Qk(4,4); Qk(6,6) = Qk(4,4);
 Qk = 0;
 Wk = 0; 
+Rk = eye(6)*0.3;
 
 %% Values we want to plot 
 
@@ -111,7 +112,7 @@ for iii = 1:length(time)
 
     %% Then, pass the sigma points through your model (Prediction)
     % Input the epoch (dt), sigma Points, and noise (wk)
-    NewPrediction = secondOrderUKFPropagation(dt, samplePoints, 0);
+    NewPrediction = secondOrderUKFPropagation(dt, samplePoints, Wk);
 
     %% Compute the weights 
     [Wc, Wm] = weights(NewPrediction,alpha,beta);
@@ -121,7 +122,7 @@ for iii = 1:length(time)
 
     Mu_x = NewPrediction*Wm; % Prior
 
-    Px = PredictCovarianceUKF(NewPrediction, samplePoints, Mu_x ,Wc, 0);
+    Px = PredictCovarianceUKF(NewPrediction, samplePoints, Mu_x ,Wc, Qk);
 
     %% Measurements
     % First get the new sigma points from the newly calculated mean and
@@ -132,57 +133,43 @@ for iii = 1:length(time)
     propagatedAccel = zeros(3,length(newSigmaPoints));
 
     %% Passing sigma points through non linear measurement model:
+    % the measurement function converts the filter’s prior into a measurement
 
     % |ax|     | cos(θx)sin(θy) |
     % |ay|  =  |     sin(θx)    |
     % |az|     | -cos(θx)cos(θy)|
+    
+    % Using the positive version for az since the outout should be +1g
+    
+    % |ax|     | cos(θx)sin(θy) |
+    % |ay|  =  |     sin(θx)    |
+    % |az|     | cos(θx)cos(θy) | 
 
     for i = 1:length(propagatedAccel)
-        propagatedAccel(1,i) = cos(newSigmaPoints(1,i))*sin(newSigmaPoints(2,i));
-        propagatedAccel(2,i) = sin(newSigmaPoints(2,i)); 
-        propagatedAccel(3,i) = -cos(newSigmaPoints(1,i))*cos(newSigmaPoints(2,i));
+        propagatedAccel(1,i) = cosd(newSigmaPoints(1,i))*sind(newSigmaPoints(2,i));
+        propagatedAccel(2,i) = sind(newSigmaPoints(2,i)); 
+        propagatedAccel(3,i) = cosd(newSigmaPoints(1,i))*cosd(newSigmaPoints(2,i));
     end 
 
     % For gyro measurment model, it would be best to use
     % ω_true = ω_output - bias
     % bias is not calclated, so I am skipping it for now
-    % cannot measure the angular acceleration so it is not included
 
     newMeasurementSigmaPoints = zeros(6,length(newSigmaPoints));
 
     newMeasurementSigmaPoints(1:3,:) = propagatedAccel;
     newMeasurementSigmaPoints(4:end,:) = newSigmaPoints(4:6,:);  % gyro stays the same
 
-    %% Converting the measurement sigma points into angles for the cross cov.
-
-    for j = 1:length(newMeasurementSigmaPoints)
-        newMeasurementSigmaPoints(1,j) = atan2(newMeasurementSigmaPoints(2,j), sqrt((newMeasurementSigmaPoints(1,j))^2 +...
-            (newMeasurementSigmaPoints(3,j))^2)) * (180/pi);
-
-        newMeasurementSigmaPoints(2,j) = atan2(-newMeasurementSigmaPoints(1,j), sqrt((newMeasurementSigmaPoints(2,j))^2 +...
-            (newMeasurementSigmaPoints(3,j))^2))* (180/pi);
-
-        newMeasurementSigmaPoints(3,j) = 0; % assuming the heading is 0 (no mag)
-    end 
-
     Mu_z = newMeasurementSigmaPoints*Wm;
 
     %% Measurment covariance
-    Pz = PredictCovarianceUKF(newMeasurementSigmaPoints, newSigmaPoints, Mu_z, Wc, 0);
+    Pz = PredictCovarianceUKF(newMeasurementSigmaPoints, newSigmaPoints, Mu_z, Wc, Rk);
 
     % measurements from sensor
-
     % (1:3) = accelerometer, (4:6) = gyroscope
     sensorReadings = [AccelX(iii); AccelY(iii); AccelZ(iii); GyroX(iii); GyroY(iii); GyroZ(iii)];
-
-    % converting accelerations into angles
-    convertedReading = [accelAngleX(sensorReadings); accelAngleY(sensorReadings); 0];
-
-    z = zeros(size(Mu_z));
-
-    z(1:3) = convertedReading;
-    z(4:end) = sensorReadings(4:end);
-
+    z = sensorReadings;
+    
     %% Cross Covariance
     Pxz = CrossCovariance(Mu_x, Mu_z, newSigmaPoints, newMeasurementSigmaPoints, Wc);
 
@@ -191,7 +178,8 @@ for iii = 1:length(time)
 
     %% Compute the posterior using the prior and measurement residual
     y = z-Mu_z;
-
+    
+    %% Update the state
     Xk = Mu_x + K*y;
 
     %% Update the covariance
@@ -222,3 +210,107 @@ for iii = 1:length(time)
     ResidualOmegaX = [ResidualOmegaX; y(4)];
     ResidualOmegaY = [ResidualOmegaY; y(5)];
 end 
+
+
+%% Plotting
+
+% figure(1)
+% plot(time, GyroX)
+% title("Gyroscope \omegaX");
+% xlabel("Time(s)")
+% ylabel("Degrees/sec")
+% grid on
+% hold on 
+% plot(time, OmegaXKalman)
+% legend("Measured Gyro data \omegaX", "Unscented Kalman Filter Gyro data \omegaX")
+% hold off
+% 
+% figure(2)
+% plot(time, GyroY)
+% title("Gyroscope \omegaY");
+% xlabel("Time(s)")
+% ylabel("Degrees/sec")
+% grid on
+% hold on 
+% plot(time, OmegaYKalman)
+% legend("Measured Gyro data \omegaY", "Unscented Kalman Filter Gyro\omegaY")
+% hold off
+% 
+% figure(3)
+% plot(time, GyroZ)
+% title("Gyroscope \omegaZ");
+% xlabel("Time(s)")
+% ylabel("Degrees/sec")
+% grid on
+% hold on 
+% plot(time, OmegaZKalman)
+% legend("Measured Gyro data \omgeaZ", "Unscented Kalman Filter Gyro\omegaZ")
+% hold off
+% 
+%
+figure(4)
+plot(time, AngleXKalman)
+title("Angle \thetaX (Roll)");
+xlabel("Time(s)")
+ylabel("Degrees")
+grid on
+% hold on 
+% plot(time, GyroX*dt)
+% legend("Unscented Kalman Filter \thetaX", "Gyroscope \thetaX")
+legend("Unscented Kalman Filter \thetaX")
+% hold off
+
+figure(5)
+plot(time, AngleYKalman)
+title("Angle \thetaY (Pitch)");
+xlabel("Time(s)")
+ylabel("Degrees")
+grid on
+% hold on 
+% plot(time, GyroY*dt)
+% legend("Unscented Kalman Filter \thetaY", "Gyroscope \thetaY")
+legend("Unscented Kalman Filter \thetaY")
+% hold off
+
+%% Plotting Residuals
+figure(6)
+plot(time, 3*PosThetaXSTD, 'ko')
+title("\thetaX Residuals 3\sigma")
+ylabel("Degrees")
+grid on
+hold on
+plot(time, ResidualThetaX)
+plot(time, -3*PosThetaXSTD, 'ko')
+hold off
+
+figure(7)
+plot(time, 3*PosThetaYSTD, 'ko')
+title("\thetaY Residuals 3\sigma")
+ylabel("Degrees")
+grid on
+hold on
+plot(time, ResidualThetaY)
+plot(time, -3*PosThetaYSTD, 'ko')
+hold off
+
+% figure(8)
+% plot(time, 3*SpeedThetaXSTD, 'ko')
+% title("\omegaX Residuals 3\sigma")
+% ylabel("Degrees/sec")
+% grid on
+% hold on
+% plot(time, ResidualOmegaX)
+% plot(time, -3*SpeedThetaXSTD, 'ko')
+% hold off
+
+% figure(9)
+% plot(time, 3*SpeedThetaYSTD, 'ko')
+% title("\omegaY Residuals 3\sigma")
+% ylabel("Degrees/sec")
+% grid on
+% hold on
+% plot(time, ResidualOmegaY)
+% plot(time, -3*SpeedThetaYSTD, 'ko')
+% hold off
+
+

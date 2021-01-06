@@ -6,7 +6,7 @@ sigmas = sigmas.';
 dim = size(sigmas);
 x0 = dim(2);
 % Predicted covariance
-col_vec_mean = newPoints.';
+col_vec_mean = newPoints;
 
 P = zeros(length(x0));
 
