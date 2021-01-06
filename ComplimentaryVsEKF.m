@@ -118,11 +118,10 @@ for j = 1:length(time)
     Sk = H*Pk_1*H.' + Rk;
     
     % Measurement (evidence)
-    % the measurement function (H) converts the filter’s prior into a measurement
     
     zk = [AccelX(j); AccelY(j); AccelZ(j); GyroX(j); GyroY(j); GyroZ(j)];  
     
-    %% Jacobian 
+    %% Jacobian (partial derivatives)
     H(1,1) = -sind(Xkp(1))*sind(Xkp(2));
     H(2,1) = cosd(Xkp(1));
     H(3,1) = -sind(Xkp(1))*cosd(Xkp(2));
@@ -134,7 +133,7 @@ for j = 1:length(time)
     H(3,3) = 0;
     
     % Measurement Model 
-    
+    % the measurement function (h_of_x) converts the filter’s prior into a measurement
     % Using the positive version for az since the outout should be +1g
     
     % |ax|     | cos(θx)sin(θy) |
