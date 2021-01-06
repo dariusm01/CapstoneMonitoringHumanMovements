@@ -24,12 +24,15 @@ dt = 1/500;
 
 % x = Fx + w
 
-F = [1 0 0 dt 0 0; 
-     0 1 0 0 dt 0; 
-     0 0 1 0 0 dt; 
-     0 0 0 1 0 0; 
-     0 0 0 0 1 0; 
-     0 0 0 0 0 1];
+F = [1 0 0 dt 0 0 0.5*dt^2 0 0; 
+     0 1 0 0 dt 0 0 0.5*dt^2 0; 
+     0 0 1 0 0 dt 0 0 0.5*dt^2; 
+     0 0 0 1 0 0 dt 0 0; 
+     0 0 0 0 1 0 0 dt 0; 
+     0 0 0 0 0 1 0 0 dt;
+     0 0 0 0 0 0 1 0 0;
+     0 0 0 0 0 0 0 1 0;
+     0 0 0 0 0 0 0 0 1];
  
 Wk = 0; 
  
@@ -41,29 +44,37 @@ ThetaX = 0; ThetaY = 0; ThetaZ = 0;
 % value for the observable variables
 OmegaX = GyroX(1); OmegaY = GyroY(1); OmegaZ = GyroZ(1); 
 
+% Acceleration is also hidden - hard to initalize
+AlphaX = 0; AlphaY = 0; AlphaZ = 0;
+
 % State Matrix
-Xk_1 = [ThetaX; ThetaY; ThetaZ; OmegaX; OmegaY; OmegaZ]; 
+Xk_1 = [ThetaX; ThetaY; ThetaZ; OmegaX; OmegaY; OmegaZ; AlphaX; AlphaY; AlphaZ]; 
 
 % Covariance Matrix 
 
-Pk_1 = eye(length(F))*500;
+Pk_1 = 5*eye(length(F));
 
 AccelSpectralDensity = 300e-6*sqrt(dt);
 
 GyroSpectralDensity = 0.01*sqrt(dt);
 
-Qk = eye(length(F));
+% Qk = eye(length(F));
+% 
+% Qk(1) = AccelSpectralDensity; Qk(2,2) = Qk(1); Qk(3,3) = Qk(1);
+% 
+% Qk(4,4) = GyroSpectralDensity; Qk(5,5) = Qk(4,4); Qk(6,6) = Qk(4,4);
 
-Qk(1) = AccelSpectralDensity; Qk(2,2) = Qk(1); Qk(3,3) = Qk(1);
-
-Qk(4,4) = GyroSpectralDensity; Qk(5,5) = Qk(4,4); Qk(6,6) = Qk(4,4);
-
+% Qk = zeros(length(F));
+Qk = 0;
 % Measurement noise
-Rk = eye(size(Pk_1))*0.1;
+% Only have sensors to measure angular position and velocity, not
+% acceleration
+Rk = eye(6)*0.1;
 
-H = eye(size(Pk_1));
+H = zeros(6,9);
+H(4,4) = 1; H(5,5) = 1; H(6,6) = 1;
 
-I = eye(size(H));
+I = eye(size(F));
 
 %% Values we want to plot 
 
@@ -73,6 +84,11 @@ AngleZKalman = [];
 OmegaXKalman = [];
 OmegaYKalman = [];
 OmegaZKalman = [];
+AlphaXKalman = [];
+
+ModelAccelerometerX = [];
+ModelAccelerometerY = [];
+ModelAccelerometerZ = [];
 
 %% Need the standard deviation and residuals to evaluate the filter mathematically
 PosThetaXSTD = [];
@@ -103,7 +119,7 @@ for i = 1:length(time)
     
     zk = [AccelX(i); AccelY(i); AccelZ(i); GyroX(i); GyroY(i); GyroZ(i)];  
     
-    %% Jacobian 
+        %% Jacobian 
     H(1,1) = -sind(Xkp(1))*sind(Xkp(2));
     H(2,1) = cosd(Xkp(1));
     H(3,1) = -sind(Xkp(1))*cosd(Xkp(2));
@@ -113,8 +129,8 @@ for i = 1:length(time)
     H(3,2) = -cosd(Xkp(1))*sind(Xkp(2));
     
     H(3,3) = 0;
-    
-    % Measurement Model 
+
+     % Measurement Model 
     
     % |ax|     | cos(θx)sin(θy) |
     % |ay|  =  |     sin(θx)    |
@@ -158,6 +174,11 @@ for i = 1:length(time)
     OmegaXKalman = [OmegaXKalman; Xk(4)];
     OmegaYKalman = [OmegaYKalman; Xk(5)];
     OmegaZKalman = [OmegaZKalman; Xk(6)];
+    AlphaXKalman = [AlphaXKalman; Xk(7)];
+    
+    ModelAccelerometerX = [ModelAccelerometerX; h_of_x(1)];
+    ModelAccelerometerY = [ModelAccelerometerY; h_of_x(2)];
+    ModelAccelerometerZ = [ModelAccelerometerZ; h_of_x(3)];
     
     PosThetaXSTD = [PosThetaXSTD; sqrt(Pk(1,1))];
     PosThetaYSTD = [PosThetaYSTD; sqrt(Pk(2,2))];
@@ -168,6 +189,7 @@ for i = 1:length(time)
     ResidualThetaY = [ResidualThetaY; yk(2)];
     ResidualOmegaX = [ResidualOmegaX; yk(4)];
     ResidualOmegaY = [ResidualOmegaY; yk(5)];
+    
 end 
 
 
@@ -272,3 +294,32 @@ hold off
 % plot(time, -3*SpeedThetaYSTD, 'ko')
 % hold off
 
+% figure(10)
+% plot(time, ModelAccelerometerX)
+% title("Model vs Measured Accelerometer Data [Ax]")
+% ylabel("g")
+% grid on
+% hold on
+% plot(time, AccelX)
+% legend("Model values", "Measured values")
+% hold off
+% 
+% figure(11)
+% plot(time, ModelAccelerometerY)
+% title("Model vs Measured Accelerometer Data [Ay]")
+% ylabel("g")
+% grid on
+% hold on
+% plot(time, AccelY)
+% legend("Model values", "Measured values")
+% hold off
+% 
+% figure(12)
+% plot(time, ModelAccelerometerZ)
+% title("Model vs Measured Accelerometer Data [Az]")
+% ylabel("g")
+% grid on
+% hold on
+% plot(time, AccelZ)
+% legend("Model values", "Measured values")
+% hold off

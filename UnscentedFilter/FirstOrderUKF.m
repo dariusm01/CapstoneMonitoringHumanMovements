@@ -29,7 +29,7 @@ ThetaX = 0; ThetaY = 0; ThetaZ = 0;
 OmegaX = GyroX(1); OmegaY = GyroY(1); OmegaZ = GyroZ(1); 
 
 %% Initializing the states and covariance
-P = eye(6);
+P = 500*eye(6);
 
 states = [ThetaX; ThetaY; ThetaZ; OmegaX; OmegaY; OmegaZ];
 
@@ -41,17 +41,19 @@ kappa = 3-length(states);
 
 alpha = 0.2;
 
-% AccelSpectralDensity = 300e-6*sqrt(dt);
-% 
-% GyroSpectralDensity = 0.01*sqrt(dt);
+AccelSpectralDensity = 300e-6*sqrt(dt);
 
-% Qk = eye(length(P));
-% 
-% Qk(1) = AccelSpectralDensity; Qk(2,2) = Qk(1); Qk(3,3) = Qk(1);
-% 
-% Qk(4,4) = GyroSpectralDensity; Qk(5,5) = Qk(4,4); Qk(6,6) = Qk(4,4);
-Qk = 0;
+GyroSpectralDensity = 0.01*sqrt(dt);
+
+Qk = eye(length(P));
+
+Qk(1) = AccelSpectralDensity; Qk(2,2) = Qk(1); Qk(3,3) = Qk(1);
+
+Qk(4,4) = GyroSpectralDensity; Qk(5,5) = Qk(4,4); Qk(6,6) = Qk(4,4);
+
 Wk = 0; 
+
+Rk = eye(size(P))*0.3;
 
 %% Values we want to plot 
 
@@ -138,7 +140,7 @@ for iii = 1:length(time)
     Mu_z = newMeasurementSigmaPoints*Wm;
 
     %% Measurment covariance
-    Pz = PredictCovarianceUKF(newMeasurementSigmaPoints, newSigmaPoints, Mu_z, Wc, 0);
+    Pz = PredictCovarianceUKF(newMeasurementSigmaPoints, newSigmaPoints, Mu_z, Wc, Rk);
 
     % measurements from sensor
     % (1:3) = accelerometer, (4:6) = gyroscope
@@ -197,7 +199,7 @@ end
 % grid on
 % hold on 
 % plot(time, OmegaXKalman)
-% legend("Measured Gyro data \omegaX", "Kalman Filter Gyro data \omegaX")
+% legend("Measured Gyro data \omegaX", "Unscented Kalman Filter Gyro data \omegaX")
 % hold off
 % 
 % figure(2)
@@ -208,7 +210,7 @@ end
 % grid on
 % hold on 
 % plot(time, OmegaYKalman)
-% legend("Measured Gyro data \omegaY", "Kalman Filter Gyro data \omegaY")
+% legend("Measured Gyro data \omegaY", "Unscented Kalman Filter Gyro\omegaY")
 % hold off
 % 
 % figure(3)
@@ -219,47 +221,73 @@ end
 % grid on
 % hold on 
 % plot(time, OmegaZKalman)
-% legend("Measured Gyro data \omgeaZ", "Kalman Filter Gyro data \omgeaZ")
+% legend("Measured Gyro data \omgeaZ", "Unscented Kalman Filter Gyro\omegaZ")
 % hold off
 % 
-% %% Plotting Residuals
-% figure(4)
-% plot(time, 5*PosThetaXSTD, 'ko')
-% title("\thetaX Residuals 5\sigma")
-% ylabel("Degrees")
-% grid on
-% hold on
-% plot(time, ResidualThetaX)
-% plot(time, -5*PosThetaXSTD, 'ko')
-% hold off
-% 
-% figure(5)
-% plot(time, 5*PosThetaYSTD, 'ko')
-% title("\thetaY Residuals 5\sigma")
-% ylabel("Degrees")
-% grid on
-% hold on
-% plot(time, ResidualThetaY)
-% plot(time, -5*PosThetaYSTD, 'ko')
-% hold off
 %
-% figure(6)
-% plot(time, 5*SpeedThetaXSTD, 'ko')
-% title("\omegaX Residuals 5\sigma")
+figure(4)
+plot(time, AngleXKalman)
+title("Angle \thetaX (Roll)");
+xlabel("Time(s)")
+ylabel("Degrees")
+grid on
+% hold on 
+% plot(time, GyroX*dt)
+% legend("Unscented Kalman Filter \thetaX", "Gyroscope \thetaX")
+legend("Unscented Kalman Filter \thetaX")
+% hold off
+
+figure(5)
+plot(time, AngleYKalman)
+title("Angle \thetaY (Pitch)");
+xlabel("Time(s)")
+ylabel("Degrees")
+grid on
+% hold on 
+% plot(time, GyroY*dt)
+% legend("Unscented Kalman Filter \thetaY", "Gyroscope \thetaY")
+legend("Unscented Kalman Filter \thetaY")
+% hold off
+
+%% Plotting Residuals
+figure(6)
+plot(time, 3*PosThetaXSTD, 'ko')
+title("\thetaX Residuals 3\sigma")
+ylabel("Degrees")
+grid on
+hold on
+plot(time, ResidualThetaX)
+plot(time, -3*PosThetaXSTD, 'ko')
+hold off
+
+figure(7)
+plot(time, 3*PosThetaYSTD, 'ko')
+title("\thetaY Residuals 3\sigma")
+ylabel("Degrees")
+grid on
+hold on
+plot(time, ResidualThetaY)
+plot(time, -3*PosThetaYSTD, 'ko')
+hold off
+
+% figure(8)
+% plot(time, 3*SpeedThetaXSTD, 'ko')
+% title("\omegaX Residuals 3\sigma")
 % ylabel("Degrees/sec")
 % grid on
 % hold on
 % plot(time, ResidualOmegaX)
-% plot(time, -5*SpeedThetaXSTD, 'ko')
+% plot(time, -3*SpeedThetaXSTD, 'ko')
 % hold off
-%
-% figure(7)
-% plot(time, 5*SpeedThetaYSTD, 'ko')
-% title("\omegaY Residuals 5\sigma")
+
+% figure(9)
+% plot(time, 3*SpeedThetaYSTD, 'ko')
+% title("\omegaY Residuals 3\sigma")
 % ylabel("Degrees/sec")
 % grid on
 % hold on
 % plot(time, ResidualOmegaY)
-% plot(time, -5*SpeedThetaYSTD, 'ko')
+% plot(time, -3*SpeedThetaYSTD, 'ko')
 % hold off
+
 
