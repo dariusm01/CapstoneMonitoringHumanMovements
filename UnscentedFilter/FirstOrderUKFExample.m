@@ -96,6 +96,7 @@ propagatedAccel = zeros(3,length(newSigmaPoints));
 % |ay|  =  |     sin(θx)    |
 % |az|     | -cos(θx)cos(θy)|
 
+
 for i = 1:length(propagatedAccel)
     propagatedAccel(1,i) = cos(newSigmaPoints(1,i))*sin(newSigmaPoints(2,i));
     propagatedAccel(2,i) = sin(newSigmaPoints(2,i)); 
