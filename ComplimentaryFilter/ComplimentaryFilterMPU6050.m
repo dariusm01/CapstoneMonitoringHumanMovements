@@ -20,13 +20,15 @@ ThetaX = 0; ThetaY = 0;
 
 %% Values we want to plot 
 
-AngleX = [];
-AngleY = [];
+AngleXComplimentary = [];
+AngleYComplimentary = [];
 
 AccelAngleX = [];
 AccelAngleY = [];
 
 alpha = 0.95;
+
+%% Complimentary Filter
 
 for i = 1:length(time)
 
@@ -35,14 +37,14 @@ for i = 1:length(time)
 
     ThetaYAccel = atan2(-AccelX(i), sqrt((AccelY(i)^2) + (AccelZ(i)^2))) * (180/pi);  
     
-    newAngleX = alpha*(GyroX*dt+ThetaX) + (1-alpha)*ThetaXAccel;
+    newAngleX = alpha*(GyroX(i)*dt+ThetaX) + (1-alpha)*ThetaXAccel;
     
-    newAngleY = alpha*(GyroY*dt+ThetaY) + (1-alpha)*ThetaYAccel;
+    newAngleY = alpha*(GyroY(i)*dt+ThetaY) + (1-alpha)*ThetaYAccel;
     
     
     % Store for plotting
-    AngleX = [newAngleX];
-    AngleY = [newAngleY];
+    AngleXComplimentary = [AngleXComplimentary;newAngleX];
+    AngleYComplimentary = [AngleYComplimentary;newAngleY];
     
     AccelAngleX = [AccelAngleX; ThetaXAccel];
     AccelAngleY = [AccelAngleY; ThetaYAccel];
@@ -55,7 +57,7 @@ for i = 1:length(time)
 end 
 
 figure(1)
-plot(time, AngleX)
+plot(time, AngleXComplimentary)
 grid on
 hold on
 xlabel("time")
@@ -69,7 +71,7 @@ hold off
 
 
 figure(2)
-plot(time, AngleY)
+plot(time, AngleYComplimentary)
 grid on
 hold on
 xlabel("time")
