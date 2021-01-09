@@ -172,7 +172,7 @@ end
 
 
 %% Plotting
-
+% 
 % figure(1)
 % plot(time, GyroX)
 % title("Gyroscope \omegaX");
@@ -219,17 +219,17 @@ end
 % legend("Extended Kalman Filter \thetaX")
 % % hold off
 % 
-figure(5)
-plot(time, AngleYKalman)
-title("Angle \thetaY (Pitch)");
-xlabel("Time(s)")
-ylabel("Degrees")
-grid on
-% hold on 
-% plot(time, GyroY*dt)
-% legend("Extended Kalman Filter \thetaY", "Gyroscope \thetaY")
-legend("Extended Kalman Filter \thetaY")
-% hold off
+% figure(5)
+% plot(time, AngleYKalman)
+% title("Angle \thetaY (Pitch)");
+% xlabel("Time(s)")
+% ylabel("Degrees")
+% grid on
+% % hold on 
+% % plot(time, GyroY*dt)
+% % legend("Extended Kalman Filter \thetaY", "Gyroscope \thetaY")
+% legend("Extended Kalman Filter \thetaY")
+% % hold off
 
 %% Plotting Residuals
 figure(6)
@@ -252,23 +252,23 @@ plot(time, ResidualThetaY)
 plot(time, -3*PosThetaYSTD, 'ko')
 hold off
 
-% figure(8)
-% plot(time, 3*SpeedThetaXSTD, 'ko')
-% title("\omegaX Residuals 3\sigma")
-% ylabel("Degrees/sec")
-% grid on
-% hold on
-% plot(time, ResidualOmegaX)
-% plot(time, -3*SpeedThetaXSTD, 'ko')
-% hold off
+figure(8)
+plot(time, 3*SpeedThetaXSTD, 'ko')
+title("\omegaX Residuals 3\sigma")
+ylabel("Degrees/sec")
+grid on
+hold on
+plot(time, ResidualOmegaX)
+plot(time, -3*SpeedThetaXSTD, 'ko')
+hold off
 
-% figure(9)
-% plot(time, 3*SpeedThetaYSTD, 'ko')
-% title("\omegaY Residuals 3\sigma")
-% ylabel("Degrees/sec")
-% grid on
-% hold on
-% plot(time, ResidualOmegaY)
-% plot(time, -3*SpeedThetaYSTD, 'ko')
-% hold off
+figure(9)
+plot(time, 3*SpeedThetaYSTD, 'ko')
+title("\omegaY Residuals 3\sigma")
+ylabel("Degrees/sec")
+grid on
+hold on
+plot(time, ResidualOmegaY)
+plot(time, -3*SpeedThetaYSTD, 'ko')
+hold off
 
