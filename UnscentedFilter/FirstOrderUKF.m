@@ -1,3 +1,22 @@
+% An example of the first iteration of the unscented kalman filter for 
+% our project. 
+%   The steps include:
+%   1. Initializing the states and covariance
+%   2. Calculate sigma points (cholesky decomp for matrix sqrt)
+%   3. Prediction - > plug in sigma points into prediction equation
+%   4. Calculate the weights Wm & Wc (mean and covariance)
+%   5. Perform the Unscented Transform to get μx (prior) and Px
+%   6. Measurements -> use the μx & Px to find new sigma points
+%   7. Plug the new sigma points into the measurement model equation(s) 
+%   8. Find μz (unscented transform)
+%   9. Take measurement (z)
+%  10. Find Pz (measurement covariance)
+%  11. Calculate the cross - covariance (Pxz)
+%  12. Determine the kalman gain (K)
+%  13. Use the kalman gain to find the estimation (posterior)
+%  14. Update the covariance 
+%  15. Repeat for next time step
+
 MeasuredData = readtable("SampleData.xlsx"); 
 
 AccelX = MeasuredData.AcX/16384;  AccelY = MeasuredData.AcY/16384;  AccelZ = MeasuredData.AcZ/16384;
@@ -213,16 +232,16 @@ end
 % legend("Measured Gyro data \omegaY", "Unscented Kalman Filter Gyro\omegaY")
 % hold off
 % 
-% figure(3)
-% plot(time, GyroZ)
-% title("Gyroscope \omegaZ");
-% xlabel("Time(s)")
-% ylabel("Degrees/sec")
-% grid on
-% hold on 
-% plot(time, OmegaZKalman)
-% legend("Measured Gyro data \omgeaZ", "Unscented Kalman Filter Gyro\omegaZ")
-% hold off
+figure(3)
+plot(time, GyroZ)
+title("Gyroscope \omegaZ");
+xlabel("Time(s)")
+ylabel("Degrees/sec")
+grid on
+hold on 
+plot(time, OmegaZKalman)
+legend("Measured Gyro data \omgeaZ", "Unscented Kalman Filter Gyro\omegaZ")
+hold off
 % 
 %
 figure(4)
@@ -270,24 +289,24 @@ plot(time, ResidualThetaY)
 plot(time, -3*PosThetaYSTD, 'ko')
 hold off
 
-% figure(8)
-% plot(time, 3*SpeedThetaXSTD, 'ko')
-% title("\omegaX Residuals 3\sigma")
-% ylabel("Degrees/sec")
-% grid on
-% hold on
-% plot(time, ResidualOmegaX)
-% plot(time, -3*SpeedThetaXSTD, 'ko')
-% hold off
+figure(8)
+plot(time, 3*SpeedThetaXSTD, 'ko')
+title("\omegaX Residuals 3\sigma")
+ylabel("Degrees/sec")
+grid on
+hold on
+plot(time, ResidualOmegaX)
+plot(time, -3*SpeedThetaXSTD, 'ko')
+hold off
 
-% figure(9)
-% plot(time, 3*SpeedThetaYSTD, 'ko')
-% title("\omegaY Residuals 3\sigma")
-% ylabel("Degrees/sec")
-% grid on
-% hold on
-% plot(time, ResidualOmegaY)
-% plot(time, -3*SpeedThetaYSTD, 'ko')
-% hold off
+figure(9)
+plot(time, 3*SpeedThetaYSTD, 'ko')
+title("\omegaY Residuals 3\sigma")
+ylabel("Degrees/sec")
+grid on
+hold on
+plot(time, ResidualOmegaY)
+plot(time, -3*SpeedThetaYSTD, 'ko')
+hold off
 
 
