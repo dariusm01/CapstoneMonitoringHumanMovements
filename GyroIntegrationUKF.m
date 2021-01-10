@@ -215,9 +215,6 @@ for iii = 1:length(time)
     OmegaYKalman = [OmegaYKalman; Xk(5)];
     OmegaZKalman = [OmegaZKalman; Xk(6)];
     
-    AngleXAccelerometer = [AngleXAccelerometer; z(1)];
-    AngleYAccelerometer = [AngleYAccelerometer; z(2)];
-    
     PosThetaXSTD = [PosThetaXSTD; sqrt(Pk(1,1))];
     PosThetaYSTD = [PosThetaYSTD; sqrt(Pk(2,2))];
     SpeedThetaXSTD = [SpeedThetaXSTD; sqrt(Pk(4,4))];
