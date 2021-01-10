@@ -34,6 +34,9 @@ phi_dot = resample(phi_dot,7,8);
 theta_dot = resample(theta_dot,7,8);
 psi_dot = resample(psi_dot,7,8);
 
+%% Initial Values 
+ThetaX = phi(1);
+ThetaY = theta(1);
 
 %% Values we want to plot 
 
@@ -54,9 +57,9 @@ for i = 1:length(time)
 
     ThetaYAccel = atan2(-AccelX(i), sqrt((AccelY(i)^2) + (AccelZ(i)^2))) * (180/pi);  
     
-    newAngleX = alpha*(phi(i)*dt+ThetaX) + (1-alpha)*ThetaXAccel;
+    newAngleX = alpha*(phi_dot(i)*dt+ThetaX) + (1-alpha)*ThetaXAccel;
     
-    newAngleY = alpha*(theta(i)*dt+ThetaY) + (1-alpha)*ThetaYAccel;
+    newAngleY = alpha*(theta_dot(i)*dt+ThetaY) + (1-alpha)*ThetaYAccel;
     
     
     % Store for plotting
