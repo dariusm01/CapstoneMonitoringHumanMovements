@@ -14,13 +14,34 @@ time = MeasuredData.Time_sec;
 
 dt = 1/500; 
  
-% Initial Angle Values (guess)
-ThetaX = 0; ThetaY = 0;
+AngleSim = sim("RateGyroUsingQuaternions.slx");
+
+% Outputs 57x1
+phi = AngleSim.phi.signals.values;
+theta = AngleSim.theta.signals.values;
+psi = AngleSim.psi.signals.values;
+phi_dot = AngleSim.phi_dot.signals.values;
+theta_dot = AngleSim.theta_dot.signals.values;
+psi_dot = AngleSim.psi_dot.signals.values;
+
+%% Resampling to get 50x1
+% resamples the input sequence, x, at 7/8 times the original sample rate
+% 57*(7/8) = 49.8750 -> ceil(49.8750) = 50
+phi = resample(phi,7,8);
+theta = resample(theta,7,8);
+psi = resample(psi,7,8);
+phi_dot = resample(phi_dot,7,8);
+theta_dot = resample(theta_dot,7,8);
+psi_dot = resample(psi_dot,7,8);
+
+%% Initial Values 
+Phi = phi(1);
+Theta = theta(1);
 
 %% Values we want to plot 
 
-AngleXComplimentary = [];
-AngleYComplimentary = [];
+PhiAngleComplimentary = [];
+ThetaAngleComplimentary  = [];
 
 AccelAngleX = [];
 AccelAngleY = [];
@@ -32,31 +53,43 @@ alpha = 0.95;
 for i = 1:length(time)
 
     % angle corrections using accelerometer 
-    ThetaXAccel = (atan2(AccelY(i), sqrt((AccelX(i)^2) + (AccelZ(i)^2)))) * (180/pi); 
+    PhiAccel = (atan2(AccelY(i), sqrt((AccelX(i)^2) + (AccelZ(i)^2)))) * (180/pi); 
 
-    ThetaYAccel = atan2(-AccelX(i), sqrt((AccelY(i)^2) + (AccelZ(i)^2))) * (180/pi);  
+    ThetaAccel = atan2(-AccelX(i), sqrt((AccelY(i)^2) + (AccelZ(i)^2))) * (180/pi);  
     
-    newAngleX = alpha*(GyroX(i)*dt+ThetaX) + (1-alpha)*ThetaXAccel;
+    newAngleX = alpha*(phi_dot(i)*dt+Phi) + (1-alpha)*PhiAccel;
     
-    newAngleY = alpha*(GyroY(i)*dt+ThetaY) + (1-alpha)*ThetaYAccel;
+    newAngleY = alpha*(theta_dot(i)*dt+Theta) + (1-alpha)*ThetaAccel;
     
     
     % Store for plotting
-    AngleXComplimentary = [AngleXComplimentary;newAngleX];
-    AngleYComplimentary = [AngleYComplimentary;newAngleY];
+    PhiAngleComplimentary = [PhiAngleComplimentary; newAngleX];
+    ThetaAngleComplimentary  = [ThetaAngleComplimentary ;newAngleY];
     
-    AccelAngleX = [AccelAngleX; ThetaXAccel];
-    AccelAngleY = [AccelAngleY; ThetaYAccel];
+    AccelAngleX = [AccelAngleX; PhiAccel];
+    AccelAngleY = [AccelAngleY; ThetaAccel];
     
     
-    ThetaX = newAngleX;
+    Phi = newAngleX;
     
-    ThetaY = newAngleY;
+    Theta = newAngleY;
 
 end 
 
 
-%% Extended Kalman Filter
+%% Extended Filter
+
+% Initial Angle Values 
+Phi = phi(1); Theta = theta(1); Psi = psi(1); 
+
+% Initial Gyro Values - it is best to use the first measurement as the
+% value for the observable variables
+PhiDot = phi_dot(1); ThetaDot = theta_dot(1); PsiDot = psi_dot(1); 
+
+% State Matrix
+Xk_1 = [Phi; Theta; Psi; PhiDot; ThetaDot; PsiDot]; 
+
+% Prediction 
 
 % x = Fx + w
 
@@ -68,17 +101,6 @@ F = [1 0 0 dt 0 0;
      0 0 0 0 0 1];
  
 Wk = 0; 
- 
-% Initial Angle Values - very hard to initialize 
-% and estimate hidden variables 
-ThetaX = 0; ThetaY = 0; ThetaZ = 0; 
-
-% Initial Gyro Values - it is best to use the first measurement as the
-% value for the observable variables
-OmegaX = GyroX(1); OmegaY = GyroY(1); OmegaZ = GyroZ(1); 
-
-% State Matrix
-Xk_1 = [ThetaX; ThetaY; ThetaZ; OmegaX; OmegaY; OmegaZ]; 
 
 % Covariance Matrix 
 
@@ -103,10 +125,10 @@ I = eye(size(H));
 
 %% Values we want to plot 
 
-AngleXKalman = [];
-AngleYKalman = [];
+PhiKalman = [];
+ThetaKalman = [];
 
-for j = 1:length(time)
+for i = 1:length(time)
 
     % Prior
     Xkp = F*Xk_1 + Wk;  
@@ -118,10 +140,11 @@ for j = 1:length(time)
     Sk = H*Pk_1*H.' + Rk;
     
     % Measurement (evidence)
+    % the measurement function (H) converts the filter’s prior into a measurement
     
-    zk = [AccelX(j); AccelY(j); AccelZ(j); GyroX(j); GyroY(j); GyroZ(j)];  
+    zk = [AccelX(i); AccelY(i); AccelZ(i); phi_dot(i); theta_dot(i); psi_dot(i)];  
     
-    %% Jacobian (partial derivatives)
+    %% Jacobian 
     H(1,1) = -sind(Xkp(1))*sind(Xkp(2));
     H(2,1) = cosd(Xkp(1));
     H(3,1) = -sind(Xkp(1))*cosd(Xkp(2));
@@ -133,15 +156,16 @@ for j = 1:length(time)
     H(3,3) = 0;
     
     % Measurement Model 
-    % the measurement function (h_of_x) converts the filter’s prior into a measurement
-    % Using the positive version for az since the outout should be +1g
     
-    % |ax|     | cos(θx)sin(θy) |
-    % |ay|  =  |     sin(θx)    |
-    % |az|     | cos(θx)cos(θy) | 
+    % |ax|     |     sin(θy)     |
+    % |ay|  =  | -cos(θy)sin(θx) |
+    % |az|     |  cos(θx)cos(θy) |
+ 
+    % For gyro measurment model, I have already converted the (p,q,r) to
+    % angular rates using simulink
     
-    h_of_x = [cosd(Xkp(1))*sind(Xkp(2));
-              sind(Xkp(1));
+    h_of_x = [sind(Xkp(2));
+              -cosd(Xkp(2))*sind(Xkp(1));
               cosd(Xkp(1))*cosd(Xkp(2));
               Xkp(4);
               Xkp(5);
@@ -164,35 +188,37 @@ for j = 1:length(time)
     
     Pk_1 = Pk;
     
+    
     % Store for plotting
-    AngleXKalman = [AngleXKalman; Xk(1)];
-    AngleYKalman = [AngleYKalman; Xk(2)];
+    PhiKalman = [PhiKalman; Xk(1)];
+    ThetaKalman = [ThetaKalman; Xk(2)];
 end 
 
 
+%% Plotting
+
 figure(1)
-plot(time, AngleXComplimentary)
+plot(time, PhiAngleComplimentary)
 grid on
 hold on
 xlabel("time")
-ylabel("Degrees (°)")
-title("Complimentary Filter vs Extended Kalman Filter \thetaX (Roll) [\alpha = 0.95]")
-plot(time, AngleXKalman)
-%plot(time, AccelAngleX)
+ylabel("Degrees [°]")
+title("Complimentary Filter vs Extended Kalman Filter \phi (Roll) [\alpha = 0.95]")
+plot(time, PhiKalman)
 legend("\thetaX Complimentary Filter", "\thetaX Extended Kalman Filter")
 %legend("\thetaX Complimentary Filter", "\thetaX Extended Kalman Filter", "\thetaX Accelerometer")
 hold off
 
 
 figure(2)
-plot(time, AngleYComplimentary)
+plot(time, ThetaAngleComplimentary)
 grid on
 hold on
 xlabel("time")
-ylabel("Degrees (°)")
-title("Complimentary Filter vs Extended Kalman Filter \thetaY (Pitch) [\alpha = 0.95]")
-plot(time, AngleYKalman)
-% plot(time, AccelAngleY)
+ylabel("Degrees [°]")
+title("Complimentary Filter vs Extended Kalman Filter \theta (Pitch) [\alpha = 0.95]")
+plot(time, ThetaKalman)
 legend("\thetaY Complimentary Filter", "\thetaY Extended Kalman Filter")
 %legend("\thetaY Complimentary Filter", "\thetaY Extended Kalman Filter", "\thetaX Accelerometer")
 hold off
+

@@ -14,7 +14,7 @@ time = MeasuredData.Time_sec;
 
 dt = 1/500; 
  
-AngleSim = sim("RateGyro_to_EulerAngles.slx");
+AngleSim = sim("RateGyroUsingQuaternions.slx");
 
 % Outputs 57x1
 phi = AngleSim.phi.signals.values;
@@ -35,13 +35,13 @@ theta_dot = resample(theta_dot,7,8);
 psi_dot = resample(psi_dot,7,8);
 
 %% Initial Values 
-ThetaX = phi(1);
-ThetaY = theta(1);
+Phi = phi(1);
+Theta = theta(1);
 
 %% Values we want to plot 
 
-AngleXComplimentary = [];
-AngleYComplimentary = [];
+PhiAngleComplimentary = [];
+ThetaAngleComplimentary  = [];
 
 AccelAngleX = [];
 AccelAngleY = [];
@@ -53,53 +53,53 @@ alpha = 0.95;
 for i = 1:length(time)
 
     % angle corrections using accelerometer 
-    ThetaXAccel = (atan2(AccelY(i), sqrt((AccelX(i)^2) + (AccelZ(i)^2)))) * (180/pi); 
+    PhiAccel = (atan2(AccelY(i), sqrt((AccelX(i)^2) + (AccelZ(i)^2)))) * (180/pi); 
 
-    ThetaYAccel = atan2(-AccelX(i), sqrt((AccelY(i)^2) + (AccelZ(i)^2))) * (180/pi);  
+    ThetaAccel = atan2(-AccelX(i), sqrt((AccelY(i)^2) + (AccelZ(i)^2))) * (180/pi);  
     
-    newAngleX = alpha*(phi_dot(i)*dt+ThetaX) + (1-alpha)*ThetaXAccel;
+    newAngleX = alpha*(phi_dot(i)*dt+Phi) + (1-alpha)*PhiAccel;
     
-    newAngleY = alpha*(theta_dot(i)*dt+ThetaY) + (1-alpha)*ThetaYAccel;
+    newAngleY = alpha*(theta_dot(i)*dt+Theta) + (1-alpha)*ThetaAccel;
     
     
     % Store for plotting
-    AngleXComplimentary = [AngleXComplimentary;newAngleX];
-    AngleYComplimentary = [AngleYComplimentary;newAngleY];
+    PhiAngleComplimentary = [PhiAngleComplimentary; newAngleX];
+    ThetaAngleComplimentary  = [ThetaAngleComplimentary ;newAngleY];
     
-    AccelAngleX = [AccelAngleX; ThetaXAccel];
-    AccelAngleY = [AccelAngleY; ThetaYAccel];
+    AccelAngleX = [AccelAngleX; PhiAccel];
+    AccelAngleY = [AccelAngleY; ThetaAccel];
     
     
-    ThetaX = newAngleX;
+    Phi = newAngleX;
     
-    ThetaY = newAngleY;
+    Theta = newAngleY;
 
 end 
 
 figure(1)
-plot(time, AngleXComplimentary)
+plot(time, PhiAngleComplimentary)
 grid on
 hold on
 xlabel("time")
-ylabel("Degrees (°)")
-title("Complimentary Filter \thetaX (Roll)")
+ylabel("Degrees [°]")
+title("Complimentary Filter \Phi (Roll)")
 plot(time, AccelAngleX)
 plot(time, phi)
-legend("\thetaX Filter", "\thetaX Acclerometer", "\thetaX Gyro")
-% legend("\thetaX Filter","\thetaX Gyro")
+legend("\Phi Filter", "\Phi Acclerometer", "\Phi Gyro")
+% legend("\Phi Filter","\Phi Gyro")
 hold off
 
 
 figure(2)
-plot(time, AngleYComplimentary)
+plot(time, ThetaAngleComplimentary)
 grid on
 hold on
 xlabel("time")
-ylabel("Degrees (°)")
-title("Complimentary Filter \thetaY (Pitch)")
+ylabel("Degrees [°]")
+title("Complimentary Filter \Theta (Pitch)")
 plot(time, AccelAngleY)
 plot(time, theta)
-legend("\thetaY Filter", "\thetaY Acclerometer", "\thetaY Gyro")
-% legend("\thetaY Filter","\thetaY Gyro")
+legend("\Theta Filter", "\Theta Acclerometer", "\Theta Gyro")
+% legend("\Theta Filter","\Theta Gyro")
 hold off
 

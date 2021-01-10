@@ -41,7 +41,7 @@ time = MeasuredData.Time_sec;
 
 dt = 1/500;
 
-AngleSim = sim("RateGyro_to_EulerAngles.slx");
+AngleSim = sim("RateGyroUsingQuaternions.slx");
 
 % Outputs 57x1
 phi = AngleSim.phi.signals.values;
@@ -64,16 +64,16 @@ psi_dot = resample(psi_dot,7,8);
 
 % Initial Angle Values - very hard to initialize 
 % and estimate hidden variables 
-ThetaX = phi(1); ThetaY = theta(1); ThetaZ = psi(1); 
+Phi = phi(1); Theta = theta(1); Psi = psi(1); 
 
 % Initial Gyro Values - it is best to use the first measurement as the
 % value for the observable variables
-OmegaX = phi_dot(1); OmegaY = theta_dot(1); OmegaZ = psi_dot(1); 
+PhiDot = phi_dot(1); ThetaDot = theta_dot(1); PsiDot = psi_dot(1); 
 
 %% Initializing the states and covariance
 P = 500*eye(6);
 
-states = [ThetaX; ThetaY; ThetaZ; OmegaX; OmegaY; OmegaZ];
+states = [Phi; Theta; Psi; PhiDot; ThetaDot; PsiDot];
 
 beta = 2;
 kappa = 3-length(states);
@@ -99,28 +99,28 @@ Rk = eye(size(P))*0.3;
 
 %% Values we want to plot 
 
-AngleXKalman = [];
-AngleYKalman = [];
-AngleZKalman = [];
-OmegaXKalman = [];
-OmegaYKalman = [];
-OmegaZKalman = [];
+PhiKalman = [];
+ThetaKalman = [];
+PsiKalman = [];
+PhiDotKalman = [];
+ThetaDotKalman = [];
+PsiDotKalman = [];
 
 AngleXAccelerometer = [];
 AngleYAccelerometer = [];
 
 %% Need the standard deviation and residuals to evaluate the filter mathematically
-PosThetaXSTD = [];
-PosThetaYSTD = [];
+PosPhiSTD = [];
+PosThetaSTD = [];
 
-SpeedThetaXSTD = [];
-SpeedThetaYSTD = [];
+SpeedPhiSTD = [];
+SpeedThetaSTD = [];
 
-ResidualThetaX = [];
-ResidualThetaY = [];
+ResidualPhi = [];
+ResidualTheta = [];
 
-ResidualOmegaX = [];
-ResidualOmegaY = [];
+ResidualPhiDot = [];
+ResidualThetaDot = [];
 
 for iii = 1:length(time)
     %% First, gather sigma points
@@ -154,19 +154,13 @@ for iii = 1:length(time)
     %% Passing sigma points through non linear measurement model:
     % the measurement function converts the filter’s prior into a measurement
 
-    % |ax|     | cos(θx)sin(θy) |
-    % |ay|  =  |     sin(θx)    |
-    % |az|     | -cos(θx)cos(θy)|
-    
-    % Using the positive version for az since the outout should be +1g
-    
-    % |ax|     | cos(θx)sin(θy) |
-    % |ay|  =  |     sin(θx)    |
-    % |az|     | cos(θx)cos(θy) | 
+    % |ax|     |     sin(θy)     |
+    % |ay|  =  | -cos(θy)sin(θx) |
+    % |az|     |  cos(θx)cos(θy) |
 
     for i = 1:length(propagatedAccel)
-        propagatedAccel(1,i) = cosd(newSigmaPoints(1,i))*sind(newSigmaPoints(2,i));
-        propagatedAccel(2,i) = sind(newSigmaPoints(2,i)); 
+        propagatedAccel(1,i) = sind(newSigmaPoints(2,i));
+        propagatedAccel(2,i) = -cosd(newSigmaPoints(2,i))*sind(newSigmaPoints(1,i)); 
         propagatedAccel(3,i) = cosd(newSigmaPoints(1,i))*cosd(newSigmaPoints(2,i));
     end 
 
@@ -208,123 +202,122 @@ for iii = 1:length(time)
     P = Pk;
     
     % Store for plotting
-    AngleXKalman = [AngleXKalman; Xk(1)];
-    AngleYKalman = [AngleYKalman; Xk(2)];
-    AngleZKalman = [AngleZKalman; Xk(3)];
-    OmegaXKalman = [OmegaXKalman; Xk(4)];
-    OmegaYKalman = [OmegaYKalman; Xk(5)];
-    OmegaZKalman = [OmegaZKalman; Xk(6)];
+    PhiKalman = [PhiKalman; Xk(1)];
+    ThetaKalman = [ThetaKalman; Xk(2)];
+    PsiKalman = [PsiKalman; Xk(3)];
+    PhiDotKalman = [PhiDotKalman; Xk(4)];
+    ThetaDotKalman = [ThetaDotKalman; Xk(5)];
+    PsiDotKalman = [PsiDotKalman; Xk(6)];
     
-    PosThetaXSTD = [PosThetaXSTD; sqrt(Pk(1,1))];
-    PosThetaYSTD = [PosThetaYSTD; sqrt(Pk(2,2))];
-    SpeedThetaXSTD = [SpeedThetaXSTD; sqrt(Pk(4,4))];
-    SpeedThetaYSTD = [SpeedThetaYSTD; sqrt(Pk(5,5))];
+    PosPhiSTD = [PosPhiSTD; sqrt(Pk(1,1))];
+    PosThetaSTD = [PosThetaSTD; sqrt(Pk(2,2))];
+    SpeedPhiSTD = [SpeedPhiSTD; sqrt(Pk(4,4))];
+    SpeedThetaSTD = [SpeedThetaSTD; sqrt(Pk(5,5))];
 
-    ResidualThetaX = [ResidualThetaX; y(1)];
-    ResidualThetaY = [ResidualThetaY; y(2)];
-    ResidualOmegaX = [ResidualOmegaX; y(4)];
-    ResidualOmegaY = [ResidualOmegaY; y(5)];
+    ResidualPhi = [ResidualPhi; y(1)];
+    ResidualTheta = [ResidualTheta; y(2)];
+    ResidualPhiDot = [ResidualPhiDot; y(4)];
+    ResidualThetaDot = [ResidualThetaDot; y(5)];
 end 
-
 
 %% Plotting
 
 figure(1)
 plot(time, phi_dot)
-title("Gyroscope \omegaX");
+title('Roll Angle Rate $\dot{\phi}$','interpreter','latex')
 xlabel("Time(s)")
-ylabel("Degrees/sec")
+ylabel("Degrees Per Second [°/s]")
 grid on
 hold on 
-plot(time, OmegaXKalman)
-legend("Measured Gyro data \omegaX", "Unscented Kalman Filter Gyro data \omegaX")
+plot(time, PhiDotKalman)
+legend("Measured Gyro data \phi", "Unscented Kalman Filter Gyro data \phi")
 hold off
 
 figure(2)
 plot(time, theta_dot)
-title("Gyroscope \omegaY");
+title('Pitch Angle Rate $\dot{\theta}$','interpreter','latex')
 xlabel("Time(s)")
-ylabel("Degrees/sec")
+ylabel("Degrees Per Second [°/s]")
 grid on
 hold on 
-plot(time, OmegaYKalman)
-legend("Measured Gyro data \omegaY", "Unscented Kalman Filter Gyro\omegaY")
+plot(time, ThetaDotKalman)
+legend("Measured Gyro data \theta", "Unscented Kalman Filter Gyro \theta")
 hold off
 
 figure(3)
 plot(time, psi_dot)
-title("Gyroscope \omegaZ");
+title('Yaw Angle Rate $\dot{\psi}$','interpreter','latex')
 xlabel("Time(s)")
-ylabel("Degrees/sec")
+ylabel("Degrees Per Second [°/s]")
 grid on
 hold on 
-plot(time, OmegaZKalman)
-legend("Measured Gyro data \omgeaZ", "Unscented Kalman Filter Gyro\omegaZ")
+plot(time, PsiDotKalman)
+legend("Measured Gyro data \psi", "Unscented Kalman Filter Gyro \psi")
 hold off
 
+
 figure(4)
-plot(time, AngleXKalman)
-title("Angle \thetaX (Roll)");
+plot(time, PhiKalman)
+title('Roll Angle ${\phi}$','interpreter','latex')
 xlabel("Time(s)")
-ylabel("Degrees")
+ylabel("Degrees [°]")
 grid on
 hold on 
 plot(time, phi)
-legend("Unscented Kalman Filter \thetaX", "Gyroscope \thetaX")
-% legend("Unscented Kalman Filter \thetaX")
+legend("Unscented Kalman Filter \phi", "Gyroscope \phi")
+% legend("Unscented Kalman Filter \Phi")
 hold off
 
 figure(5)
-plot(time, AngleYKalman)
-title("Angle \thetaY (Pitch)");
+plot(time, ThetaKalman)
+title('Pitch Angle ${\theta}$','interpreter','latex')
 xlabel("Time(s)")
-ylabel("Degrees")
+ylabel("Degrees [°]")
 grid on
 hold on 
 plot(time, theta)
-legend("Unscented Kalman Filter \thetaY", "Gyroscope \thetaY")
-%legend("Unscented Kalman Filter \thetaY")
+legend("Unscented Kalman Filter \theta", "Gyroscope \theta")
+%legend("Unscented Kalman Filter \Theta")
 hold off
 
-%% Plotting Residuals
+% Plotting Residuals
 figure(6)
-plot(time, 3*PosThetaXSTD, 'ko')
-title("\thetaX Residuals 3\sigma")
-ylabel("Degrees")
+plot(time, 3*PosPhiSTD, 'ko')
+title("Roll Angle Residuals 3\sigma")
+ylabel("Degrees [°]")
 grid on
 hold on
-plot(time, ResidualThetaX)
-plot(time, -3*PosThetaXSTD, 'ko')
+plot(time, ResidualPhi)
+plot(time, -3*PosPhiSTD, 'ko')
 hold off
 
 figure(7)
-plot(time, 3*PosThetaYSTD, 'ko')
-title("\thetaY Residuals 3\sigma")
-ylabel("Degrees")
+plot(time, 3*PosThetaSTD, 'ko')
+title("Pitch Angle Residuals 3\sigma")
+ylabel("Degrees [°]")
 grid on
 hold on
-plot(time, ResidualThetaY)
-plot(time, -3*PosThetaYSTD, 'ko')
+plot(time, ResidualTheta)
+plot(time, -3*PosThetaSTD, 'ko')
 hold off
 
 figure(8)
-plot(time, 3*SpeedThetaXSTD, 'ko')
-title("\omegaX Residuals 3\sigma")
-ylabel("Degrees/sec")
+plot(time, 3*SpeedPhiSTD, 'ko')
+title("Roll Rate Residuals 3\sigma")
+ylabel("Degrees [°/s]")
 grid on
 hold on
-plot(time, ResidualOmegaX)
-plot(time, -3*SpeedThetaXSTD, 'ko')
+plot(time, ResidualPhiDot)
+plot(time, -3*SpeedPhiSTD, 'ko')
 hold off
 
 figure(9)
-plot(time, 3*SpeedThetaYSTD, 'ko')
-title("\omegaY Residuals 3\sigma")
-ylabel("Degrees/sec")
+plot(time, 3*SpeedThetaSTD, 'ko')
+title("Pitch Rate Residuals 3\sigma")
+ylabel("Degrees [°/s]")
 grid on
 hold on
-plot(time, ResidualOmegaY)
-plot(time, -3*SpeedThetaYSTD, 'ko')
+plot(time, ResidualThetaDot)
+plot(time, -3*SpeedThetaSTD, 'ko')
 hold off
-
 
