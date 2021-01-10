@@ -11,17 +11,16 @@ time = MeasuredData.Time_sec;
 
 dt = 1/500; 
 
-
 open("RateGyro_to_EulerAngles.slx")
 AngleSim = sim("RateGyro_to_EulerAngles.slx");
 
-phi = AngleSim.phi.Data;
-theta = AngleSim.theta.Data;
-psi = AngleSim.psi.Data;
-t = AngleSim.tout;
-phi_dot = AngleSim.phi_dot.Data;
-theta_dot = AngleSim.theta_dot.Data;
-psi_dot = AngleSim.psi_dot.Data;
+phi = AngleSim.phi.signals.values;
+theta = AngleSim.theta.signals.values;
+psi = AngleSim.psi.signals.values;
+t = AngleSim.phi.time;
+phi_dot = AngleSim.phi_dot.signals.values;
+theta_dot = AngleSim.theta_dot.signals.values;
+psi_dot = AngleSim.psi_dot.signals.values;
 
 %% Angular Position
 figure(1)
