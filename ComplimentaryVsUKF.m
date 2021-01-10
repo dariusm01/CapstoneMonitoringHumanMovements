@@ -1,9 +1,17 @@
-MeasuredData = readtable("/Users/dariusmensah/Desktop/SampleData.xlsx");    % change to your specific file path
+MeasuredData = readtable("SampleData.xlsx"); 
+
+addpath("UnscentedFilter")
 
 AccelX = MeasuredData.AcX/16384;  AccelY = MeasuredData.AcY/16384;  AccelZ = MeasuredData.AcZ/16384;
 
 GyroX = MeasuredData.GyX/131;   GyroY = MeasuredData.GyY/131;   GyroZ = MeasuredData.GyZ/131;
 
+%% Gyro Noise Specs:
+% Total RMS Noise = 0.1 °/s rms
+% Rate Noise spectral density = 0.01 °/s /√Hz
+
+%% Accelerometer Noise Specs
+% Noise power spectral density (low noise mode) = 300 µg/√Hz
 
 %% Simple form of calibration by removing the mean values
 AccelX = AccelX - mean(AccelX); AccelY = AccelY - mean(AccelY); AccelZ = 1-(AccelZ - mean(AccelZ));
@@ -12,15 +20,38 @@ GyroX  = GyroX - mean(GyroX);   GyroY  = GyroY - mean(GyroY);   GyroZ  = GyroZ -
 
 time = MeasuredData.Time_sec;
 
-dt = 1/500; 
- 
-% Initial Angle Values (guess)
-ThetaX = 0; ThetaY = 0;
+dt = 1/500;
+
+AngleSim = sim("RateGyroUsingQuaternions.slx");
+
+% Outputs 57x1
+phi = AngleSim.phi.signals.values;
+theta = AngleSim.theta.signals.values;
+psi = AngleSim.psi.signals.values;
+phi_dot = AngleSim.phi_dot.signals.values;
+theta_dot = AngleSim.theta_dot.signals.values;
+psi_dot = AngleSim.psi_dot.signals.values;
+
+%% Resampling to get 50x1
+% resamples the input sequence, x, at 7/8 times the original sample rate
+% 57*(7/8) = 49.8750 -> ceil(49.8750) = 50
+phi = resample(phi,7,8);
+theta = resample(theta,7,8);
+psi = resample(psi,7,8);
+phi_dot = resample(phi_dot,7,8);
+theta_dot = resample(theta_dot,7,8);
+psi_dot = resample(psi_dot,7,8);
+
+
+
+%% Initial Values 
+Phi = phi(1);
+Theta = theta(1);
 
 %% Values we want to plot 
 
-AngleXComplimentary = [];
-AngleYComplimentary = [];
+PhiAngleComplimentary = [];
+ThetaAngleComplimentary  = [];
 
 AccelAngleX = [];
 AccelAngleY = [];
@@ -29,49 +60,44 @@ alpha = 0.95;
 
 %% Complimentary Filter
 
-addpath("UnscentedFilter")
-
 for i = 1:length(time)
 
     % angle corrections using accelerometer 
-    ThetaXAccel = (atan2(AccelY(i), sqrt((AccelX(i)^2) + (AccelZ(i)^2)))) * (180/pi); 
+    PhiAccel = (atan2(AccelY(i), sqrt((AccelX(i)^2) + (AccelZ(i)^2)))) * (180/pi); 
 
-    ThetaYAccel = atan2(-AccelX(i), sqrt((AccelY(i)^2) + (AccelZ(i)^2))) * (180/pi);  
+    ThetaAccel = atan2(-AccelX(i), sqrt((AccelY(i)^2) + (AccelZ(i)^2))) * (180/pi);  
     
-    newAngleX = alpha*(GyroX(i)*dt+ThetaX) + (1-alpha)*ThetaXAccel;
+    newAngleX = alpha*(phi_dot(i)*dt+Phi) + (1-alpha)*PhiAccel;
     
-    newAngleY = alpha*(GyroY(i)*dt+ThetaY) + (1-alpha)*ThetaYAccel;
+    newAngleY = alpha*(theta_dot(i)*dt+Theta) + (1-alpha)*ThetaAccel;
     
     
     % Store for plotting
-    AngleXComplimentary = [AngleXComplimentary;newAngleX];
-    AngleYComplimentary = [AngleYComplimentary;newAngleY];
+    PhiAngleComplimentary = [PhiAngleComplimentary; newAngleX];
+    ThetaAngleComplimentary  = [ThetaAngleComplimentary ;newAngleY];
     
-    AccelAngleX = [AccelAngleX; ThetaXAccel];
-    AccelAngleY = [AccelAngleY; ThetaYAccel];
+    AccelAngleX = [AccelAngleX; PhiAccel];
+    AccelAngleY = [AccelAngleY; ThetaAccel];
     
     
-    ThetaX = newAngleX;
+    Phi = newAngleX;
     
-    ThetaY = newAngleY;
+    Theta = newAngleY;
 
 end 
 
+%% Unscented Filter
 
-%% Unscented Kalman Filter
+% Initial Angle Values 
+Phi = phi(1); Theta = theta(1); Psi = psi(1); 
 
-% Initial Angle Values - very hard to initialize 
-% and estimate hidden variables 
-ThetaX = 0; ThetaY = 0; ThetaZ = 0; 
-
-% Initial Gyro Values - it is best to use the first measurement as the
-% value for the observable variables
-OmegaX = GyroX(1); OmegaY = GyroY(1); OmegaZ = GyroZ(1); 
+% Initial Gyro Values 
+PhiDot = phi_dot(1); ThetaDot = theta_dot(1); PsiDot = psi_dot(1); 
 
 %% Initializing the states and covariance
 P = 500*eye(6);
 
-states = [ThetaX; ThetaY; ThetaZ; OmegaX; OmegaY; OmegaZ];
+states = [Phi; Theta; Psi; PhiDot; ThetaDot; PsiDot];
 
 beta = 2;
 kappa = 3-length(states);
@@ -97,8 +123,8 @@ Rk = eye(size(P))*0.3;
 
 %% Values we want to plot 
 
-AngleXKalman = [];
-AngleYKalman = [];
+PhiKalman = [];
+ThetaKalman = [];
 
 for iii = 1:length(time)
     %% First, gather sigma points
@@ -132,25 +158,18 @@ for iii = 1:length(time)
     %% Passing sigma points through non linear measurement model:
     % the measurement function converts the filter’s prior into a measurement
 
-    % |ax|     | cos(θx)sin(θy) |
-    % |ay|  =  |     sin(θx)    |
-    % |az|     | -cos(θx)cos(θy)|
-    
-    % Using the positive version for az since the outout should be +1g
-    
-    % |ax|     | cos(θx)sin(θy) |
-    % |ay|  =  |     sin(θx)    |
-    % |az|     | cos(θx)cos(θy) | 
+    % |ax|     |     sin(θy)     |
+    % |ay|  =  | -cos(θy)sin(θx) |
+    % |az|     |  cos(θx)cos(θy) |
 
     for i = 1:length(propagatedAccel)
-        propagatedAccel(1,i) = cosd(newSigmaPoints(1,i))*sind(newSigmaPoints(2,i));
-        propagatedAccel(2,i) = sind(newSigmaPoints(2,i)); 
+        propagatedAccel(1,i) = sind(newSigmaPoints(2,i));
+        propagatedAccel(2,i) = -cosd(newSigmaPoints(2,i))*sind(newSigmaPoints(1,i)); 
         propagatedAccel(3,i) = cosd(newSigmaPoints(1,i))*cosd(newSigmaPoints(2,i));
     end 
 
-    % For gyro measurment model, it would be best to use
-    % ω_true = ω_output - bias
-    % bias is not calclated, so I am skipping it for now
+    % For gyro measurment model, I have already converted the (p,q,r) to
+    % angular rates using simulink
 
     newMeasurementSigmaPoints = zeros(size(newSigmaPoints));
 
@@ -164,7 +183,7 @@ for iii = 1:length(time)
 
     % measurements from sensor
     % (1:3) = accelerometer, (4:6) = gyroscope
-    sensorReadings = [AccelX(iii); AccelY(iii); AccelZ(iii); GyroX(iii); GyroY(iii); GyroZ(iii)];
+    sensorReadings = [AccelX(iii); AccelY(iii); AccelZ(iii); phi_dot(iii); theta_dot(iii); psi_dot(iii)];
     z = sensorReadings;
     
     %% Cross Covariance
@@ -187,34 +206,35 @@ for iii = 1:length(time)
     P = Pk;
     
     % Store for plotting
-    AngleXKalman = [AngleXKalman; Xk(1)];
-    AngleYKalman = [AngleYKalman; Xk(2)];
+    PhiKalman = [PhiKalman; Xk(1)];
+    ThetaKalman = [ThetaKalman; Xk(2)];
 end 
 
 
+%% Plotting
+
 figure(1)
-plot(time, AngleXComplimentary)
+plot(time, PhiAngleComplimentary)
 grid on
 hold on
 xlabel("time")
-ylabel("Degrees (°)")
-title("Complimentary Filter vs Unscented Kalman Filter \thetaX (Roll) [\alpha = 0.95]")
-plot(time, AngleXKalman)
-%plot(time, AccelAngleX)
+ylabel("Degrees [°]")
+title("Complimentary Filter vs Unscented Kalman Filter \phi (Roll) [\alpha = 0.95]")
+plot(time, PhiKalman)
 legend("\thetaX Complimentary Filter", "\thetaX Unscented Kalman Filter")
 %legend("\thetaX Complimentary Filter", "\thetaX Unscented Kalman Filter", "\thetaX Accelerometer")
 hold off
 
 
 figure(2)
-plot(time, AngleYComplimentary)
+plot(time, ThetaAngleComplimentary)
 grid on
 hold on
 xlabel("time")
-ylabel("Degrees (°)")
-title("Complimentary Filter vs Unscented Kalman Filter \thetaY (Pitch) [\alpha = 0.95]")
-plot(time, AngleYKalman)
-% plot(time, AccelAngleY)
+ylabel("Degrees [°]")
+title("Complimentary Filter vs Unscented Kalman Filter \theta (Pitch) [\alpha = 0.95]")
+plot(time, ThetaKalman)
 legend("\thetaY Complimentary Filter", "\thetaY Unscented Kalman Filter")
 %legend("\thetaY Complimentary Filter", "\thetaY Unscented Kalman Filter", "\thetaX Accelerometer")
 hold off
+
