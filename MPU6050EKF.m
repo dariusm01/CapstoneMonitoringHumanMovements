@@ -14,11 +14,17 @@ GyroX = MeasuredData.GyX/131;   GyroY = MeasuredData.GyY/131;   GyroZ = Measured
 %% Simple form of calibration by removing the mean values
 AccelX = AccelX - mean(AccelX); AccelY = AccelY - mean(AccelY); AccelZ = 1-(AccelZ - mean(AccelZ));
 
-GyroX  = GyroX - mean(GyroX);   GyroY  = GyroY - mean(GyroY);   GyroZ  = GyroZ - mean(GyroZ); 
+GyroX  = -1*(GyroX - mean(GyroX));   GyroY  = -1*(GyroY - mean(GyroY));   GyroZ  = -1*(GyroZ - mean(GyroZ)); 
 
 time = MeasuredData.Time_sec;
 
 dt = 1/500;
+
+%% Changing orientation to match North East Down
+
+[AccelY,AccelX] = swap(AccelX,AccelY);
+
+[GyroY,GyroX] = swap(GyroX,GyroY);
 
 %% Prediction 
 
@@ -119,36 +125,48 @@ for i = 1:length(time)
     Sk = H*Pk_1*H.' + Rk;
     
     % Measurement (evidence)
-    % the measurement function (H) converts the filter’s prior into a measurement
     
-    zk = [AccelX(i); AccelY(i); AccelZ(i); phi_dot(i); theta_dot(i); psi_dot(i)];  
+    % zk = [AccelX(i); AccelY(i); AccelZ(i); phi_dot(i); theta_dot(i); psi_dot(i)];  
+    zk = [AccelX(i); AccelY(i); AccelZ(i); GyroX(i); GyroY(i); GyroZ(i)]; 
     
-    %% Jacobian 
-    H(1,1) = -sind(Xkp(1))*sind(Xkp(2));
-    H(2,1) = cosd(Xkp(1));
-    H(3,1) = -sind(Xkp(1))*cosd(Xkp(2));
+    % Measurement Model Accelerometer
     
-    H(1,2) = cosd(Xkp(1))*cosd(Xkp(2));
-    H(2,2) = 0;
-    H(3,2) = -cosd(Xkp(1))*sind(Xkp(2));
-    
-    H(3,3) = 0;
-    
-    % Measurement Model 
-    
-    % |ax|     |     sin(θy)     |
-    % |ay|  =  | -cos(θy)sin(θx) |
-    % |az|     |  cos(θx)cos(θy) |
+    % |ax|     |    -sin(θ)    |
+    % |ay|  =  |  cos(θ)sin(φ) |
+    % |az|     |  cos(θ)cos(φ) |
  
-    % For gyro measurment model, I have already converted the (p,q,r) to
-    % angular rates using simulink
+    % Measurement Model Gyroscope
+    %                   .   .
+    % |p|     |         φ - ψsin(θ)      |
+    %           .         .
+    % |q|  =  | θcos(φ) + ψcos(θ)sin(φ)  |
+    %           .               .
+    % |r|     | ψcos(θ)cos(φ) - θsin(φ)  |
     
-    h_of_x = [sind(Xkp(2));
-              -cosd(Xkp(2))*sind(Xkp(1));
-              cosd(Xkp(1))*cosd(Xkp(2));
-              Xkp(4);
-              Xkp(5);
-              Xkp(6)];
+    
+    h_of_x = [-sind(Xkp(2));
+              cosd(Xkp(2))*sind(Xkp(1));
+              cosd(Xkp(2))*cosd(Xkp(1));
+              Xkp(4)-(Xkp(6)*sind(Xkp(2)));
+              Xkp(5)*cosd(Xkp(1)) + Xkp(6)*cosd(Xkp(2))*sind(Xkp(1));
+              Xkp(6)*cosd(Xkp(2))*cosd(Xkp(1)) - Xkp(5)*sind(Xkp(1))];
+    
+          
+    %% Measurment Jacobian 
+    % the measurement function (H) converts the filter’s prior into a measurement
+    H(1,1) = 0; H(1,2) = -cosd(Xkp(2)); 
+    H(2,1) = cosd(Xkp(1))*cosd(Xkp(2)); H(2,2) = -sind(Xkp(1))*sind(Xkp(2));
+    H(3,1) = -cosd(Xkp(2))*sind(Xkp(1)); H(3,2) = -cosd(Xkp(1))*sind(Xkp(2)); H(3,3) = 0;
+    H(4,2) = Xkp(4)*cosd(Xkp(2)); H(4,6) = -sind(Xkp(2));
+    H(5,1) = Xkp(6)*cosd(Xkp(1))*cosd(Xkp(2));
+    H(5,2) = -Xkp(6)*sind(Xkp(1))*sind(Xkp(2));
+    H(5,3) = -Xkp(5)*sind(Xkp(3));
+    H(5,5) = cosd(Xkp(3));
+    H(5,6) = cosd(Xkp(2))*sind(Xkp(3));
+    H(6,1) = -Xkp(5)*cosd(Xkp(1)) - Xkp(6)*cosd(Xkp(2))*sind(Xkp(1));
+    H(6,2) = -Xkp(6)*cosd(Xkp(1))*sind(Xkp(2));
+    H(6,5) = -sind(Xkp(1));
+    H(6,6) = cosd(Xkp(1))*cosd(Xkp(2));
     
     % Innovation (Residual)
     yk = zk - h_of_x;
