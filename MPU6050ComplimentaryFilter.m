@@ -8,15 +8,25 @@ GyroX = MeasuredData.GyX/131;   GyroY = MeasuredData.GyY/131;   GyroZ = Measured
 %% Simple form of calibration by removing the mean values
 AccelX = AccelX - mean(AccelX); AccelY = AccelY - mean(AccelY); AccelZ = 1-(AccelZ - mean(AccelZ));
 
-GyroX  = GyroX - mean(GyroX);   GyroY  = GyroY - mean(GyroY);   GyroZ  = GyroZ - mean(GyroZ); 
+GyroX  = -1*(GyroX - mean(GyroX));   GyroY  = -1*(GyroY - mean(GyroY));   GyroZ  = -1*(GyroZ - mean(GyroZ)); 
 
 time = MeasuredData.Time_sec;
 
-dt = 1/500; 
+dt = 1/500;
+
+GyroX = deg2rad(GyroX);
+GyroY = deg2rad(GyroY);
+GyroZ = deg2rad(GyroZ);
+
+%% Changing orientation to match North East Down
+
+[AccelY,AccelX] = swap(AccelX,AccelY);
+
+[GyroY,GyroX] = swap(GyroX,GyroY);
  
 AngleSim = sim("RateGyroUsingQuaternions.slx");
 
-% Outputs 57x1
+% Outputs 55x1
 phi = AngleSim.phi.signals.values;
 theta = AngleSim.theta.signals.values;
 psi = AngleSim.psi.signals.values;
@@ -26,13 +36,13 @@ psi_dot = AngleSim.psi_dot.signals.values;
 
 %% Resampling to get 50x1
 % resamples the input sequence, x, at 7/8 times the original sample rate
-% 57*(7/8) = 49.8750 -> ceil(49.8750) = 50
-phi = resample(phi,7,8);
-theta = resample(theta,7,8);
-psi = resample(psi,7,8);
-phi_dot = resample(phi_dot,7,8);
-theta_dot = resample(theta_dot,7,8);
-psi_dot = resample(psi_dot,7,8);
+% 55*(9/10) = 49.50 -> ceil(49.50) = 50
+phi = resample(phi,9,10);
+theta = resample(theta,9,10);
+psi = resample(psi,9,10);
+phi_dot = resample(phi_dot,9,10);
+theta_dot = resample(theta_dot,9,10);
+psi_dot = resample(psi_dot,9,10);
 
 %% Initial Values 
 Phi = phi(1);
@@ -53,9 +63,9 @@ alpha = 0.95;
 for i = 1:length(time)
 
     % angle corrections using accelerometer 
-    PhiAccel = (atan2(AccelY(i), sqrt((AccelX(i)^2) + (AccelZ(i)^2)))) * (180/pi); 
+    PhiAccel = (atan2(AccelY(i), sqrt((AccelX(i)^2) + (AccelZ(i)^2)))); 
 
-    ThetaAccel = atan2(-AccelX(i), sqrt((AccelY(i)^2) + (AccelZ(i)^2))) * (180/pi);  
+    ThetaAccel = atan2(-AccelX(i), sqrt((AccelY(i)^2) + (AccelZ(i)^2)));  
     
     newAngleX = alpha*(phi_dot(i)*dt+Phi) + (1-alpha)*PhiAccel;
     
@@ -77,28 +87,28 @@ for i = 1:length(time)
 end 
 
 figure(1)
-plot(time, PhiAngleComplimentary)
+plot(time, rad2deg(PhiAngleComplimentary))
 grid on
 hold on
 xlabel("time")
 ylabel("Degrees [°]")
 title("Complimentary Filter \Phi (Roll)")
-plot(time, AccelAngleX)
-plot(time, phi)
+plot(time, rad2deg(AccelAngleX))
+plot(time, rad2deg(phi))
 legend("\Phi Filter", "\Phi Acclerometer", "\Phi Gyro")
 % legend("\Phi Filter","\Phi Gyro")
 hold off
 
 
 figure(2)
-plot(time, ThetaAngleComplimentary)
+plot(time, rad2deg(ThetaAngleComplimentary))
 grid on
 hold on
 xlabel("time")
 ylabel("Degrees [°]")
 title("Complimentary Filter \Theta (Pitch)")
-plot(time, AccelAngleY)
-plot(time, theta)
+plot(time, rad2deg(AccelAngleY))
+plot(time, rad2deg(theta))
 legend("\Theta Filter", "\Theta Acclerometer", "\Theta Gyro")
 % legend("\Theta Filter","\Theta Gyro")
 hold off
