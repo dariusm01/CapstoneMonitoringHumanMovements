@@ -62,7 +62,7 @@ theta_dot = AngleSim.theta_dot.signals.values;
 psi_dot = AngleSim.psi_dot.signals.values;
 
 %% Resampling to get 50x1
-% resamples the input sequence, x, at 7/8 times the original sample rate
+% resamples the input sequence, x, at 9/10 times the original sample rate
 % 55*(9/10) = 49.50 -> ceil(49.50) = 50
 phi = resample(phi,9,10);
 theta = resample(theta,9,10);
