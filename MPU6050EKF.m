@@ -20,6 +20,10 @@ time = MeasuredData.Time_sec;
 
 dt = 1/500;
 
+GyroX = deg2rad(GyroX);
+GyroY = deg2rad(GyroY);
+GyroZ = deg2rad(GyroZ);
+
 %% Changing orientation to match North East Down
 
 [AccelY,AccelX] = swap(AccelX,AccelY);
@@ -41,7 +45,7 @@ Wk = 0;
  
 AngleSim = sim("RateGyroUsingQuaternions.slx");
 
-% Outputs 57x1
+% Outputs 55x1
 phi = AngleSim.phi.signals.values;
 theta = AngleSim.theta.signals.values;
 psi = AngleSim.psi.signals.values;
@@ -51,13 +55,13 @@ psi_dot = AngleSim.psi_dot.signals.values;
 
 %% Resampling to get 50x1
 % resamples the input sequence, x, at 7/8 times the original sample rate
-% 57*(7/8) = 49.8750 -> ceil(49.8750) = 50
-phi = resample(phi,7,8);
-theta = resample(theta,7,8);
-psi = resample(psi,7,8);
-phi_dot = resample(phi_dot,7,8);
-theta_dot = resample(theta_dot,7,8);
-psi_dot = resample(psi_dot,7,8);
+% 55*(9/10) = 49.50 -> ceil(49.50) = 50
+phi = resample(phi,9,10);
+theta = resample(theta,9,10);
+psi = resample(psi,9,10);
+phi_dot = resample(phi_dot,9,10);
+theta_dot = resample(theta_dot,9,10);
+psi_dot = resample(psi_dot,9,10);
 
 % Initial Angle Values - very hard to initialize 
 % and estimate hidden variables 
@@ -85,7 +89,7 @@ Qk(1) = AccelSpectralDensity; Qk(2,2) = Qk(1); Qk(3,3) = Qk(1);
 Qk(4,4) = GyroSpectralDensity; Qk(5,5) = Qk(4,4); Qk(6,6) = Qk(4,4);
 
 % Measurement noise
-Rk = eye(size(Pk_1))*0.1;
+Rk = eye(size(Pk_1))*10.1;
 
 H = eye(size(Pk_1));
 
@@ -144,29 +148,29 @@ for i = 1:length(time)
     % |r|     | ψcos(θ)cos(φ) - θsin(φ)  |
     
     
-    h_of_x = [-sind(Xkp(2));
-              cosd(Xkp(2))*sind(Xkp(1));
-              cosd(Xkp(2))*cosd(Xkp(1));
-              Xkp(4)-(Xkp(6)*sind(Xkp(2)));
-              Xkp(5)*cosd(Xkp(1)) + Xkp(6)*cosd(Xkp(2))*sind(Xkp(1));
-              Xkp(6)*cosd(Xkp(2))*cosd(Xkp(1)) - Xkp(5)*sind(Xkp(1))];
+    h_of_x = [-sin(Xkp(2));
+              cos(Xkp(2))*sin(Xkp(1));
+              cos(Xkp(2))*cos(Xkp(1));
+              Xkp(4)-(Xkp(6)*sin(Xkp(2)));
+              Xkp(5)*cos(Xkp(1)) + Xkp(6)*cos(Xkp(2))*sin(Xkp(1));
+              Xkp(6)*cos(Xkp(2))*cos(Xkp(1)) - Xkp(5)*sin(Xkp(1))];
     
           
     %% Measurment Jacobian 
     % the measurement function (H) converts the filter’s prior into a measurement
-    H(1,1) = 0; H(1,2) = -cosd(Xkp(2)); 
-    H(2,1) = cosd(Xkp(1))*cosd(Xkp(2)); H(2,2) = -sind(Xkp(1))*sind(Xkp(2));
-    H(3,1) = -cosd(Xkp(2))*sind(Xkp(1)); H(3,2) = -cosd(Xkp(1))*sind(Xkp(2)); H(3,3) = 0;
-    H(4,2) = Xkp(4)*cosd(Xkp(2)); H(4,6) = -sind(Xkp(2));
-    H(5,1) = Xkp(6)*cosd(Xkp(1))*cosd(Xkp(2));
-    H(5,2) = -Xkp(6)*sind(Xkp(1))*sind(Xkp(2));
-    H(5,3) = -Xkp(5)*sind(Xkp(3));
-    H(5,5) = cosd(Xkp(3));
-    H(5,6) = cosd(Xkp(2))*sind(Xkp(3));
-    H(6,1) = -Xkp(5)*cosd(Xkp(1)) - Xkp(6)*cosd(Xkp(2))*sind(Xkp(1));
-    H(6,2) = -Xkp(6)*cosd(Xkp(1))*sind(Xkp(2));
-    H(6,5) = -sind(Xkp(1));
-    H(6,6) = cosd(Xkp(1))*cosd(Xkp(2));
+    H(1,1) = 0; H(1,2) = -cos(Xkp(2)); 
+    H(2,1) = cos(Xkp(1))*cos(Xkp(2)); H(2,2) = -sin(Xkp(1))*sin(Xkp(2));
+    H(3,1) = -cos(Xkp(2))*sin(Xkp(1)); H(3,2) = -cos(Xkp(1))*sin(Xkp(2)); H(3,3) = 0;
+    H(4,2) = -Xkp(6)*cos(Xkp(2)); H(4,6) = -sin(Xkp(2));
+    H(5,1) = Xkp(6)*cos(Xkp(1))*cos(Xkp(2));
+    H(5,2) = -Xkp(6)*sin(Xkp(1))*sin(Xkp(2));
+    H(5,3) = -Xkp(5)*sin(Xkp(3));
+    H(5,5) = cos(Xkp(3));
+    H(5,6) = cos(Xkp(2))*sin(Xkp(1));
+    H(6,1) = -Xkp(5)*cos(Xkp(1)) - Xkp(6)*cos(Xkp(2))*sin(Xkp(1));
+    H(6,2) = -Xkp(6)*cos(Xkp(1))*sin(Xkp(2));
+    H(6,5) = -sin(Xkp(1));
+    H(6,6) = cos(Xkp(1))*cos(Xkp(2));
     
     % Innovation (Residual)
     yk = zk - h_of_x;
@@ -208,101 +212,101 @@ end
 %% Plotting
 
 figure(1)
-plot(time, phi_dot)
+plot(time, rad2deg(phi_dot))
 title('Roll Angle Rate $\dot{\phi}$','interpreter','latex')
 xlabel("Time(s)")
 ylabel("Degrees Per Second [°/s]")
 grid on
 hold on 
-plot(time, PhiDotKalman)
+plot(time, rad2deg(PhiDotKalman))
 legend("Measured Gyro data \phi", "Extended Kalman Filter Gyro data \phi")
 hold off
 
 figure(2)
-plot(time, theta_dot)
+plot(time, rad2deg(theta_dot))
 title('Pitch Angle Rate $\dot{\theta}$','interpreter','latex')
 xlabel("Time(s)")
 ylabel("Degrees Per Second [°/s]")
 grid on
 hold on 
-plot(time, ThetaDotKalman)
+plot(time, rad2deg(ThetaDotKalman))
 legend("Measured Gyro data \theta", "Extended Kalman Filter Gyro \theta")
 hold off
 
 figure(3)
-plot(time, psi_dot)
+plot(time, rad2deg(psi_dot))
 title('Yaw Angle Rate $\dot{\psi}$','interpreter','latex')
 xlabel("Time(s)")
 ylabel("Degrees Per Second [°/s]")
 grid on
 hold on 
-plot(time, PsiDotKalman)
+plot(time, rad2deg(PsiDotKalman))
 legend("Measured Gyro data \psi", "Extended Kalman Filter Gyro \psi")
 hold off
 
 
 figure(4)
-plot(time, PhiKalman)
+plot(time, rad2deg(PhiKalman))
 title('Roll Angle ${\phi}$','interpreter','latex')
 xlabel("Time(s)")
 ylabel("Degrees [°]")
 grid on
 hold on 
-plot(time, phi)
+plot(time, rad2deg(phi))
 legend("Extended Kalman Filter \phi", "Gyroscope \phi")
 % legend("Extended Kalman Filter \Phi")
 hold off
 
 figure(5)
-plot(time, ThetaKalman)
+plot(time, rad2deg(ThetaKalman))
 title('Pitch Angle ${\theta}$','interpreter','latex')
 xlabel("Time(s)")
 ylabel("Degrees [°]")
 grid on
 hold on 
-plot(time, theta)
+plot(time, rad2deg(theta))
 legend("Extended Kalman Filter \theta", "Gyroscope \theta")
 %legend("Extended Kalman Filter \Theta")
 hold off
 
 % Plotting Residuals
 figure(6)
-plot(time, 3*PosPhiSTD, 'ko')
+plot(time, 3*rad2deg(PosPhiSTD), 'ko')
 title("Roll Angle Residuals 3\sigma")
 ylabel("Degrees [°]")
 grid on
 hold on
-plot(time, ResidualPhi)
-plot(time, -3*PosPhiSTD, 'ko')
+plot(time, rad2deg(ResidualPhi))
+plot(time, -3*rad2deg(PosPhiSTD), 'ko')
 hold off
 
 figure(7)
-plot(time, 3*PosThetaSTD, 'ko')
+plot(time, 3*rad2deg(PosThetaSTD), 'ko')
 title("Pitch Angle Residuals 3\sigma")
 ylabel("Degrees [°]")
 grid on
 hold on
-plot(time, ResidualTheta)
-plot(time, -3*PosThetaSTD, 'ko')
+plot(time, rad2deg(ResidualTheta))
+plot(time, -3*rad2deg(PosThetaSTD), 'ko')
 hold off
 
 figure(8)
-plot(time, 3*SpeedPhiSTD, 'ko')
+plot(time, 3*rad2deg(SpeedPhiSTD), 'ko')
 title("Roll Rate Residuals 3\sigma")
 ylabel("Degrees [°/s]")
 grid on
 hold on
-plot(time, ResidualPhiDot)
-plot(time, -3*SpeedPhiSTD, 'ko')
+plot(time, rad2deg(ResidualPhiDot))
+plot(time, -3*rad2deg(SpeedPhiSTD), 'ko')
 hold off
 
 figure(9)
-plot(time, 3*SpeedThetaSTD, 'ko')
+plot(time, 3*rad2deg(SpeedThetaSTD), 'ko')
 title("Pitch Rate Residuals 3\sigma")
 ylabel("Degrees [°/s]")
 grid on
 hold on
-plot(time, ResidualThetaDot)
-plot(time, -3*SpeedThetaSTD, 'ko')
+plot(time, rad2deg(ResidualThetaDot))
+plot(time, -3*rad2deg(SpeedThetaSTD), 'ko')
 hold off
 

@@ -17,9 +17,9 @@
 %  14. Update the covariance 
 %  15. Repeat for next time step
 
-MeasuredData = readtable("SampleData.xlsx"); 
+addpath("UnscentedFilter");
 
-addpath("UnscentedFilter")
+MeasuredData = readtable("SampleData.xlsx");
 
 AccelX = MeasuredData.AcX/16384;  AccelY = MeasuredData.AcY/16384;  AccelZ = MeasuredData.AcZ/16384;
 
@@ -35,15 +35,25 @@ GyroX = MeasuredData.GyX/131;   GyroY = MeasuredData.GyY/131;   GyroZ = Measured
 %% Simple form of calibration by removing the mean values
 AccelX = AccelX - mean(AccelX); AccelY = AccelY - mean(AccelY); AccelZ = 1-(AccelZ - mean(AccelZ));
 
-GyroX  = GyroX - mean(GyroX);   GyroY  = GyroY - mean(GyroY);   GyroZ  = GyroZ - mean(GyroZ); 
+GyroX  = -1*(GyroX - mean(GyroX));   GyroY  = -1*(GyroY - mean(GyroY));   GyroZ  = -1*(GyroZ - mean(GyroZ)); 
 
 time = MeasuredData.Time_sec;
 
 dt = 1/500;
 
+GyroX = deg2rad(GyroX);
+GyroY = deg2rad(GyroY);
+GyroZ = deg2rad(GyroZ);
+
+%% Changing orientation to match North East Down
+
+[AccelY,AccelX] = swap(AccelX,AccelY);
+
+[GyroY,GyroX] = swap(GyroX,GyroY);
+
 AngleSim = sim("RateGyroUsingQuaternions.slx");
 
-% Outputs 57x1
+% Outputs 55x1
 phi = AngleSim.phi.signals.values;
 theta = AngleSim.theta.signals.values;
 psi = AngleSim.psi.signals.values;
@@ -53,13 +63,13 @@ psi_dot = AngleSim.psi_dot.signals.values;
 
 %% Resampling to get 50x1
 % resamples the input sequence, x, at 7/8 times the original sample rate
-% 57*(7/8) = 49.8750 -> ceil(49.8750) = 50
-phi = resample(phi,7,8);
-theta = resample(theta,7,8);
-psi = resample(psi,7,8);
-phi_dot = resample(phi_dot,7,8);
-theta_dot = resample(theta_dot,7,8);
-psi_dot = resample(psi_dot,7,8);
+% 55*(9/10) = 49.50 -> ceil(49.50) = 50
+phi = resample(phi,9,10);
+theta = resample(theta,9,10);
+psi = resample(psi,9,10);
+phi_dot = resample(phi_dot,9,10);
+theta_dot = resample(theta_dot,9,10);
+psi_dot = resample(psi_dot,9,10);
 
 
 % Initial Angle Values - very hard to initialize 
@@ -150,27 +160,41 @@ for iii = 1:length(time)
     newSigmaPoints = sigmaPoints(Mu_x,Px,alpha);
 
     propagatedAccel = zeros(3,length(newSigmaPoints));
+    propagatedGyro = zeros(3,length(newSigmaPoints));
 
     %% Passing sigma points through non linear measurement model:
     % the measurement function converts the filter’s prior into a measurement
-
-    % |ax|     |     sin(θy)     |
-    % |ay|  =  | -cos(θy)sin(θx) |
-    % |az|     |  cos(θx)cos(θy) |
+    
+    % Measurement Model Accelerometer
+    
+    % |ax|     |    -sin(θ)    |
+    % |ay|  =  |  cos(θ)sin(φ) |
+    % |az|     |  cos(θ)cos(φ) |
+ 
+    % Measurement Model Gyroscope
+    %                   .   .
+    % |p|     |         φ - ψsin(θ)      |
+    %           .         .
+    % |q|  =  | θcos(φ) + ψcos(θ)sin(φ)  |
+    %           .               .
+    % |r|     | ψcos(θ)cos(φ) - θsin(φ)  |
 
     for i = 1:length(propagatedAccel)
-        propagatedAccel(1,i) = sind(newSigmaPoints(2,i));
-        propagatedAccel(2,i) = -cosd(newSigmaPoints(2,i))*sind(newSigmaPoints(1,i)); 
-        propagatedAccel(3,i) = cosd(newSigmaPoints(1,i))*cosd(newSigmaPoints(2,i));
+        propagatedAccel(1,i) = -sin(newSigmaPoints(2,i));
+        propagatedAccel(2,i) = cos(newSigmaPoints(2,i))*sin(newSigmaPoints(1,i)); 
+        propagatedAccel(3,i) = cos(newSigmaPoints(2,i))*cos(newSigmaPoints(1,i));
     end 
-
-    % For gyro measurment model, I have already converted the (p,q,r) to
-    % angular rates using simulink
+    
+    for j=1:length(propagatedGyro)
+        propagatedGyro(1,j) = newSigmaPoints(4,j) - newSigmaPoints(6,j)*sin(newSigmaPoints(2,j));
+        propagatedGyro(2,j) = newSigmaPoints(5,j)*cos(newSigmaPoints(1,j)) + newSigmaPoints(6,j)*cos(newSigmaPoints(2,j))*sin(newSigmaPoints(1,j));
+        propagatedGyro(3,j) = newSigmaPoints(6,j)*cos(newSigmaPoints(2,j))*cos(newSigmaPoints(1,j)) - newSigmaPoints(5,j)*sin(newSigmaPoints(1,j));
+    end 
 
     newMeasurementSigmaPoints = zeros(size(newSigmaPoints));
 
     newMeasurementSigmaPoints(1:3,:) = propagatedAccel;
-    newMeasurementSigmaPoints(4:end,:) = newSigmaPoints(4:end,:);  % gyro stays the same
+    newMeasurementSigmaPoints(4:end,:) = propagatedGyro; 
 
     Mu_z = newMeasurementSigmaPoints*Wm;
 
@@ -179,7 +203,7 @@ for iii = 1:length(time)
 
     % measurements from sensor
     % (1:3) = accelerometer, (4:6) = gyroscope
-    sensorReadings = [AccelX(iii); AccelY(iii); AccelZ(iii); phi_dot(iii); theta_dot(iii); psi_dot(iii)];
+    sensorReadings = [AccelX(iii); AccelY(iii); AccelZ(iii); GyroX(iii); GyroY(iii); GyroZ(iii)];
     z = sensorReadings;
     
     %% Cross Covariance
@@ -223,101 +247,101 @@ end
 %% Plotting
 
 figure(1)
-plot(time, phi_dot)
+plot(time, rad2deg(phi_dot))
 title('Roll Angle Rate $\dot{\phi}$','interpreter','latex')
 xlabel("Time(s)")
 ylabel("Degrees Per Second [°/s]")
 grid on
 hold on 
-plot(time, PhiDotKalman)
+plot(time, rad2deg(PhiDotKalman))
 legend("Measured Gyro data \phi", "Unscented Kalman Filter Gyro data \phi")
 hold off
 
 figure(2)
-plot(time, theta_dot)
+plot(time, rad2deg(theta_dot))
 title('Pitch Angle Rate $\dot{\theta}$','interpreter','latex')
 xlabel("Time(s)")
 ylabel("Degrees Per Second [°/s]")
 grid on
 hold on 
-plot(time, ThetaDotKalman)
+plot(time, rad2deg(ThetaDotKalman))
 legend("Measured Gyro data \theta", "Unscented Kalman Filter Gyro \theta")
 hold off
 
 figure(3)
-plot(time, psi_dot)
+plot(time, rad2deg(psi_dot))
 title('Yaw Angle Rate $\dot{\psi}$','interpreter','latex')
 xlabel("Time(s)")
 ylabel("Degrees Per Second [°/s]")
 grid on
 hold on 
-plot(time, PsiDotKalman)
+plot(time, rad2deg(PsiDotKalman))
 legend("Measured Gyro data \psi", "Unscented Kalman Filter Gyro \psi")
 hold off
 
 
 figure(4)
-plot(time, PhiKalman)
+plot(time, rad2deg(PhiKalman))
 title('Roll Angle ${\phi}$','interpreter','latex')
 xlabel("Time(s)")
 ylabel("Degrees [°]")
 grid on
 hold on 
-plot(time, phi)
+plot(time, rad2deg(phi))
 legend("Unscented Kalman Filter \phi", "Gyroscope \phi")
 % legend("Unscented Kalman Filter \Phi")
 hold off
 
 figure(5)
-plot(time, ThetaKalman)
+plot(time, rad2deg(ThetaKalman))
 title('Pitch Angle ${\theta}$','interpreter','latex')
 xlabel("Time(s)")
 ylabel("Degrees [°]")
 grid on
 hold on 
-plot(time, theta)
+plot(time, rad2deg(theta))
 legend("Unscented Kalman Filter \theta", "Gyroscope \theta")
 %legend("Unscented Kalman Filter \Theta")
 hold off
 
 % Plotting Residuals
 figure(6)
-plot(time, 3*PosPhiSTD, 'ko')
+plot(time, 3*rad2deg(PosPhiSTD), 'ko')
 title("Roll Angle Residuals 3\sigma")
 ylabel("Degrees [°]")
 grid on
 hold on
-plot(time, ResidualPhi)
-plot(time, -3*PosPhiSTD, 'ko')
+plot(time, rad2deg(ResidualPhi))
+plot(time, -3*rad2deg(PosPhiSTD), 'ko')
 hold off
 
 figure(7)
-plot(time, 3*PosThetaSTD, 'ko')
+plot(time, 3*rad2deg(PosThetaSTD), 'ko')
 title("Pitch Angle Residuals 3\sigma")
 ylabel("Degrees [°]")
 grid on
 hold on
-plot(time, ResidualTheta)
-plot(time, -3*PosThetaSTD, 'ko')
+plot(time, rad2deg(ResidualTheta))
+plot(time, -3*rad2deg(PosThetaSTD), 'ko')
 hold off
 
 figure(8)
-plot(time, 3*SpeedPhiSTD, 'ko')
+plot(time, 3*rad2deg(SpeedPhiSTD), 'ko')
 title("Roll Rate Residuals 3\sigma")
 ylabel("Degrees [°/s]")
 grid on
 hold on
-plot(time, ResidualPhiDot)
-plot(time, -3*SpeedPhiSTD, 'ko')
+plot(time, rad2deg(ResidualPhiDot))
+plot(time, -3*rad2deg(SpeedPhiSTD), 'ko')
 hold off
 
 figure(9)
-plot(time, 3*SpeedThetaSTD, 'ko')
+plot(time, 3*rad2deg(SpeedThetaSTD), 'ko')
 title("Pitch Rate Residuals 3\sigma")
 ylabel("Degrees [°/s]")
 grid on
 hold on
-plot(time, ResidualThetaDot)
-plot(time, -3*SpeedThetaSTD, 'ko')
+plot(time, rad2deg(ResidualThetaDot))
+plot(time, -3*rad2deg(SpeedThetaSTD), 'ko')
 hold off
 
