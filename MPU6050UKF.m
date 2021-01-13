@@ -32,7 +32,6 @@ dt = 1/500;
 
 % Initial Angle Values - very hard to initialize 
 % and estimate hidden variables 
-Phi = phi(1); Theta = theta(1); Psi = psi(1); 
 
 % Initial Gyro Values - it is best to use the first measurement as the
 % value for the observable variables
