@@ -195,59 +195,59 @@ end
 %% Plotting
 
 figure(1)
-plot(time, rad2deg(phi_dot))
+plot(time, rad2deg(phi_dot),'LineWidth',1)
 title('Roll Angle Rate $\dot{\phi}$','interpreter','latex')
 xlabel("Time(s)")
 ylabel("Degrees Per Second [°/s]")
 grid on
 hold on 
-plot(time, rad2deg(PhiDotKalman))
+plot(time, rad2deg(PhiDotKalman),'LineWidth',1)
 legend("Measured Gyro data \phi", "Unscented Kalman Filter Gyro data \phi")
 hold off
 
 figure(2)
-plot(time, rad2deg(theta_dot))
+plot(time, rad2deg(theta_dot),'LineWidth',1)
 title('Pitch Angle Rate $\dot{\theta}$','interpreter','latex')
 xlabel("Time(s)")
 ylabel("Degrees Per Second [°/s]")
 grid on
 hold on 
-plot(time, rad2deg(ThetaDotKalman))
+plot(time, rad2deg(ThetaDotKalman),'LineWidth',1)
 legend("Measured Gyro data \theta", "Unscented Kalman Filter Gyro \theta")
 hold off
 
 figure(3)
-plot(time, rad2deg(psi_dot))
+plot(time, rad2deg(psi_dot),'LineWidth',1)
 title('Yaw Angle Rate $\dot{\psi}$','interpreter','latex')
 xlabel("Time(s)")
 ylabel("Degrees Per Second [°/s]")
 grid on
 hold on 
-plot(time, rad2deg(PsiDotKalman))
+plot(time, rad2deg(PsiDotKalman),'LineWidth',1)
 legend("Measured Gyro data \psi", "Unscented Kalman Filter Gyro \psi")
 hold off
 
 
 figure(4)
-plot(time, rad2deg(PhiKalman))
+plot(time, rad2deg(PhiKalman),'LineWidth',1)
 title('Roll Angle ${\phi}$','interpreter','latex')
 xlabel("Time(s)")
 ylabel("Degrees [°]")
 grid on
 hold on 
-plot(time, rad2deg(phi))
+plot(time, rad2deg(phi),'LineWidth',1)
 legend("Unscented Kalman Filter \phi", "Gyroscope \phi")
 % legend("Unscented Kalman Filter \Phi")
 hold off
 
 figure(5)
-plot(time, rad2deg(ThetaKalman))
+plot(time, rad2deg(ThetaKalman),'LineWidth',1)
 title('Pitch Angle ${\theta}$','interpreter','latex')
 xlabel("Time(s)")
 ylabel("Degrees [°]")
 grid on
 hold on 
-plot(time, rad2deg(theta))
+plot(time, rad2deg(theta),'LineWidth',1)
 legend("Unscented Kalman Filter \theta", "Gyroscope \theta")
 %legend("Unscented Kalman Filter \Theta")
 hold off
