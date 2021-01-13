@@ -45,28 +45,28 @@ for i = 1:length(time)
 end 
 
 figure(1)
-plot(time, rad2deg(PhiAngleComplimentary))
+plot(time, rad2deg(PhiAngleComplimentary),'LineWidth',1)
 grid on
 hold on
 xlabel("time")
 ylabel("Degrees [°]")
 title("Complimentary Filter \Phi (Roll)")
-plot(time, rad2deg(AccelAngleX))
-plot(time, rad2deg(phi))
+plot(time, rad2deg(AccelAngleX),'LineWidth',1)
+plot(time, rad2deg(phi),'LineWidth',1)
 legend("\Phi Filter", "\Phi Acclerometer", "\Phi Gyro")
 % legend("\Phi Filter","\Phi Gyro")
 hold off
 
 
 figure(2)
-plot(time, rad2deg(ThetaAngleComplimentary))
+plot(time, rad2deg(ThetaAngleComplimentary),'LineWidth',1)
 grid on
 hold on
 xlabel("time")
 ylabel("Degrees [°]")
 title("Complimentary Filter \Theta (Pitch)")
-plot(time, rad2deg(AccelAngleY))
-plot(time, rad2deg(theta))
+plot(time, rad2deg(AccelAngleY),'LineWidth',1)
+plot(time, rad2deg(theta),'LineWidth',1)
 legend("\Theta Filter", "\Theta Acclerometer", "\Theta Gyro")
 % legend("\Theta Filter","\Theta Gyro")
 hold off
