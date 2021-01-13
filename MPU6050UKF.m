@@ -117,9 +117,6 @@ for iii = 1:length(time)
 
     newSigmaPoints = sigmaPoints(Mu_x,Px,alpha);
 
-    propagatedAccel = zeros(3,length(newSigmaPoints));
-    propagatedGyro = zeros(3,length(newSigmaPoints));
-
     %% Passing sigma points through non linear measurement model:
     % the measurement function converts the filter’s prior into a measurement
     
@@ -137,22 +134,16 @@ for iii = 1:length(time)
     %           .               .
     % |r|     | ψcos(θ)cos(φ) - θsin(φ)  |
 
-    for i = 1:length(propagatedAccel)
-        propagatedAccel(1,i) = -sin(newSigmaPoints(2,i));
-        propagatedAccel(2,i) = cos(newSigmaPoints(2,i))*sin(newSigmaPoints(1,i)); 
-        propagatedAccel(3,i) = cos(newSigmaPoints(2,i))*cos(newSigmaPoints(1,i));
-    end 
-    
-    for j=1:length(propagatedGyro)
-        propagatedGyro(1,j) = newSigmaPoints(4,j) - newSigmaPoints(6,j)*sin(newSigmaPoints(2,j));
-        propagatedGyro(2,j) = newSigmaPoints(5,j)*cos(newSigmaPoints(1,j)) + newSigmaPoints(6,j)*cos(newSigmaPoints(2,j))*sin(newSigmaPoints(1,j));
-        propagatedGyro(3,j) = newSigmaPoints(6,j)*cos(newSigmaPoints(2,j))*cos(newSigmaPoints(1,j)) - newSigmaPoints(5,j)*sin(newSigmaPoints(1,j));
-    end 
-
     newMeasurementSigmaPoints = zeros(size(newSigmaPoints));
-
-    newMeasurementSigmaPoints(1:3,:) = propagatedAccel;
-    newMeasurementSigmaPoints(4:end,:) = propagatedGyro; 
+    
+    for i = 1:length(newMeasurementSigmaPoints)
+        newMeasurementSigmaPoints(1,i) = -sin(newSigmaPoints(2,i));
+        newMeasurementSigmaPoints(2,i) = cos(newSigmaPoints(2,i))*sin(newSigmaPoints(1,i)); 
+        newMeasurementSigmaPoints(3,i) = cos(newSigmaPoints(2,i))*cos(newSigmaPoints(1,i));
+        newMeasurementSigmaPoints(4,i) = newSigmaPoints(4,i) - newSigmaPoints(6,i)*sin(newSigmaPoints(2,i));
+        newMeasurementSigmaPoints(5,i) = newSigmaPoints(5,i)*cos(newSigmaPoints(1,i)) + newSigmaPoints(6,i)*cos(newSigmaPoints(2,i))*sin(newSigmaPoints(1,i));
+        newMeasurementSigmaPoints(6,i) = newSigmaPoints(6,i)*cos(newSigmaPoints(2,i))*cos(newSigmaPoints(1,i)) - newSigmaPoints(5,i)*sin(newSigmaPoints(1,i));
+    end 
 
     Mu_z = newMeasurementSigmaPoints*Wm;
 
