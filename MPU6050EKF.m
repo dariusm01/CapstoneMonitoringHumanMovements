@@ -24,7 +24,6 @@ Wk = 0;
  
 % Initial Angle Values - very hard to initialize 
 % and estimate hidden variables 
-Phi = phi(1); Theta = theta(1); Psi = psi(1); 
 
 % Initial Gyro Values - it is best to use the first measurement as the
 % value for the observable variables
@@ -48,7 +47,7 @@ Qk(1) = AccelSpectralDensity; Qk(2,2) = Qk(1); Qk(3,3) = Qk(1);
 Qk(4,4) = GyroSpectralDensity; Qk(5,5) = Qk(4,4); Qk(6,6) = Qk(4,4);
 
 % Measurement noise
-Rk = eye(size(Pk_1))*10.1;
+Rk = eye(size(Pk_1))*0.3;
 
 H = eye(size(Pk_1));
 
