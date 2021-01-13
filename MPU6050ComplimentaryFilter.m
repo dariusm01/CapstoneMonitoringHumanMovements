@@ -12,7 +12,7 @@ ThetaAngleComplimentary  = [];
 AccelAngleX = [];
 AccelAngleY = [];
 
-alpha = 0.95;
+alpha = 0.98;
 
 dt = 1/500;
 
