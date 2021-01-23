@@ -50,17 +50,23 @@ kappa = 3-length(states);
 
 alpha = 0.2;
 
+% Noise
 AccelSpectralDensity = 300e-6*sqrt(dt);
 
 GyroSpectralDensity = 0.01*sqrt(dt);
 
-Qk = eye(length(P));
+Wk = zeros(size(states)); 
+Wk(1) = sqrt(AccelSpectralDensity);
+Wk(2) = Wk(1);
+Wk(3) = Wk(1);
 
-Qk(1) = AccelSpectralDensity; Qk(2,2) = Qk(1); Qk(3,3) = Qk(1);
+Wk(4) = sqrt(GyroSpectralDensity);
+Wk(5) = Wk(4);
+Wk(6) = Wk(4);
 
-Qk(4,4) = GyroSpectralDensity; Qk(5,5) = Qk(4,4); Qk(6,6) = Qk(4,4);
+Wk = Wk*1e-5;
 
-Wk = 0; 
+Qk = Wk*Wk.';
 
 Rk = eye(size(P))*0.3;
 
@@ -73,8 +79,8 @@ PhiDotKalman = [];
 ThetaDotKalman = [];
 PsiDotKalman = [];
 
-AngleXAccelerometer = [];
-AngleYAccelerometer = [];
+% Sensor was not moving so everything should be close to 0
+True = 0;
 
 %% Need the standard deviation and residuals to evaluate the filter mathematically
 PosPhiSTD = [];
@@ -186,10 +192,10 @@ for iii = 1:length(time)
     SpeedPhiSTD = [SpeedPhiSTD; sqrt(Pk(4,4))];
     SpeedThetaSTD = [SpeedThetaSTD; sqrt(Pk(5,5))];
 
-    ResidualPhi = [ResidualPhi; y(1)];
-    ResidualTheta = [ResidualTheta; y(2)];
-    ResidualPhiDot = [ResidualPhiDot; y(4)];
-    ResidualThetaDot = [ResidualThetaDot; y(5)];
+    ResidualPhi = [ResidualPhi; True-Xk(1)];
+    ResidualTheta = [ResidualTheta; True-Xk(2)];
+    ResidualPhiDot = [ResidualPhiDot; True-Xk(4)];
+    ResidualThetaDot = [ResidualThetaDot; True-Xk(5)];
 end 
 
 %% Plotting
