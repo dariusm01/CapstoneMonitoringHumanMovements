@@ -20,7 +20,6 @@ F = [1 0 0 dt 0 0;
      0 0 0 0 1 0; 
      0 0 0 0 0 1];
  
-Wk = 0; 
  
 % Initial Angle Values - very hard to initialize 
 % and estimate hidden variables 
@@ -45,6 +44,15 @@ Qk = eye(length(F));
 Qk(1) = AccelSpectralDensity; Qk(2,2) = Qk(1); Qk(3,3) = Qk(1);
 
 Qk(4,4) = GyroSpectralDensity; Qk(5,5) = Qk(4,4); Qk(6,6) = Qk(4,4);
+
+Wk = zeros(size(Xk_1)); 
+% Wk(1) = sqrt(Qk(1));
+% Wk(2) = Wk(1);
+% Wk(3) = Wk(1);
+% 
+% Wk(4) = sqrt(Qk(4,4));
+% Wk(5) = Wk(4);
+% Wk(6) = Wk(4);
 
 % Measurement noise
 Rk = eye(size(Pk_1))*0.3;
