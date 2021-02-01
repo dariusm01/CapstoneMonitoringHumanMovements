@@ -96,8 +96,7 @@ for i = 1:length(time)
     Sk = H*Pk_1*H.' + Rk;
     
     % Measurement (evidence)
-    
-    % zk = [AccelX(i); AccelY(i); AccelZ(i); phi_dot(i); theta_dot(i); psi_dot(i)];  
+ 
     zk = [AccelX(i); AccelY(i); AccelZ(i); GyroX(i); GyroY(i); GyroZ(i)]; 
     
     % Measurement Model Accelerometer
@@ -114,7 +113,7 @@ for i = 1:length(time)
     %           .               .
     % |r|     | ψcos(θ)cos(φ) - θsin(φ)  |
     
-    
+    % the measurement function converts the filter’s prior into a measurement
     h_of_x = [-sin(Xkp(2));
               cos(Xkp(2))*sin(Xkp(1));
               cos(Xkp(2))*cos(Xkp(1));
@@ -124,7 +123,6 @@ for i = 1:length(time)
     
           
     %% Measurment Jacobian 
-    % the measurement function (H) converts the filter’s prior into a measurement
     H(1,1) = 0; H(1,2) = -cos(Xkp(2)); 
     H(2,1) = cos(Xkp(1))*cos(Xkp(2)); H(2,2) = -sin(Xkp(1))*sin(Xkp(2));
     H(3,1) = -cos(Xkp(2))*sin(Xkp(1)); H(3,2) = -cos(Xkp(1))*sin(Xkp(2)); H(3,3) = 0;
