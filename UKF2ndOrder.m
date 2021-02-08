@@ -37,10 +37,13 @@ dt = 1/500;
 % value for the observable variables
 PhiDot = phi_dot(1); ThetaDot = theta_dot(1); PsiDot = psi_dot(1); 
 
-%% Initializing the states and covariance
-P = 500*eye(6);
+PhiDD = 0; ThetaDD = 0; PsiDD = 0;
 
-states = [Phi; Theta; Psi; PhiDot; ThetaDot; PsiDot];
+%% Initializing the states and covariance
+
+states = [Phi; Theta; Psi; PhiDot; ThetaDot; PsiDot; PhiDD; ThetaDD; PsiDD]; 
+
+P = 500*eye(length(states));
 
 beta = 2;
 kappa = 3-length(states);
@@ -57,9 +60,9 @@ GyroSpectralDensity = 0.01*sqrt(dt);
 
 Wk = 0;
 
-Qk = FirstOrderPNC(GyroSpectralDensity,dt);
+Qk = SecondOrderPNC(100,dt);
 
-Rk = eye(size(P))*0.3;
+Rk = eye(6)*0.3;
 
 %% Values we want to plot 
 
@@ -69,6 +72,11 @@ PsiKalman = [];
 PhiDotKalman = [];
 ThetaDotKalman = [];
 PsiDotKalman = [];
+
+% Euler Angle Acceleration
+PhiDDotKalman = [];
+ThetaDDotKalman = [];
+PsiDDotKalman = [];
 
 % Sensor was not moving so everything should be close to 0
 True = 0;
@@ -80,11 +88,17 @@ PosThetaSTD = [];
 SpeedPhiSTD = [];
 SpeedThetaSTD = [];
 
+AccelPhiSTD = [];
+AccelThetaSTD = [];
+
 ResidualPhi = [];
 ResidualTheta = [];
 
 ResidualPhiDot = [];
 ResidualThetaDot = [];
+
+ResidualPhiDDot = [];
+ResidualThetaDDot = [];
 
 for iii = 1:length(time)
     %% First, gather sigma points
@@ -95,7 +109,7 @@ for iii = 1:length(time)
 
     %% Then, pass the sigma points through your model (Prediction)
     % Input the epoch (dt), sigma Points, and noise (wk)
-    NewPrediction = firstOrderUKFPropagation(dt, samplePoints, Wk);
+    NewPrediction = secondOrderUKFPropagation(dt, samplePoints, Wk);
 
     %% Compute the weights 
     [Wc, Wm] = weights(NewPrediction,alpha,beta);
@@ -130,7 +144,7 @@ for iii = 1:length(time)
     %           .               .
     % |r|     | ψcos(θ)cos(φ) - θsin(φ)  |
 
-    newMeasurementSigmaPoints = zeros(size(newSigmaPoints));
+    newMeasurementSigmaPoints = zeros(6,length(samplePoints));
     
     for i = 1:length(newMeasurementSigmaPoints)
         newMeasurementSigmaPoints(1,i) = -sin(newSigmaPoints(2,i));
@@ -177,16 +191,23 @@ for iii = 1:length(time)
     PhiDotKalman = [PhiDotKalman; Xk(4)];
     ThetaDotKalman = [ThetaDotKalman; Xk(5)];
     PsiDotKalman = [PsiDotKalman; Xk(6)];
+    PhiDDotKalman = [PhiDDotKalman; Xk(7)];
+    ThetaDDotKalman = [ThetaDDotKalman; Xk(8)];
+    PsiDDotKalman = [PsiDDotKalman; Xk(9)];
     
     PosPhiSTD = [PosPhiSTD; sqrt(Pk(1,1))];
     PosThetaSTD = [PosThetaSTD; sqrt(Pk(2,2))];
     SpeedPhiSTD = [SpeedPhiSTD; sqrt(Pk(4,4))];
     SpeedThetaSTD = [SpeedThetaSTD; sqrt(Pk(5,5))];
+    AccelPhiSTD = [AccelPhiSTD; sqrt(Pk(7,7))];
+    AccelThetaSTD = [AccelThetaSTD; sqrt(Pk(8,8))];
 
     ResidualPhi = [ResidualPhi; True-Xk(1)];
     ResidualTheta = [ResidualTheta; True-Xk(2)];
     ResidualPhiDot = [ResidualPhiDot; True-Xk(4)];
     ResidualThetaDot = [ResidualThetaDot; True-Xk(5)];
+    ResidualPhiDDot = [ResidualPhiDDot; True-Xk(7)];
+    ResidualThetaDDot = [ResidualThetaDDot; True-Xk(8)];
 end 
 
 %% Plotting
@@ -289,4 +310,66 @@ hold on
 plot(time, rad2deg(ResidualThetaDot))
 plot(time, -3*rad2deg(SpeedThetaSTD), 'ko')
 hold off
+
+% figure(10)
+% plot(time, 3*rad2deg(AccelPhiSTD), 'ko')
+% title("Pitch Acceleration Residuals 3\sigma")
+% ylabel("Degrees [°/s^2]")
+% grid on
+% hold on
+% plot(time, rad2deg(ResidualPhiDDot))
+% plot(time, -3*rad2deg(AccelPhiSTD), 'ko')
+% hold off
+% 
+% figure(11)
+% plot(time, 3*rad2deg(AccelThetaSTD), 'ko')
+% title("Pitch Acceleration Residuals 3\sigma")
+% ylabel("Degrees [°/s^2]")
+% grid on
+% hold on
+% plot(time, rad2deg(ResidualThetaDDot))
+% plot(time, -3*rad2deg(AccelThetaSTD), 'ko')
+% hold off
+
+%% Plotting Derivatives
+
+figure(12)
+subplot(3,1,1)
+plot(time, rad2deg(PhiKalman))
+grid on
+ylabel("Degrees [°]")
+title("Angular Position")
+
+subplot(3,1,2)
+plot(time, rad2deg(PhiDotKalman))
+grid on
+ylabel("Degrees [°/s]")
+title("Angular Velocity")
+
+subplot(3,1,3)
+plot(time, rad2deg(PhiDDotKalman))
+ylabel("Degrees [°/s^2]")
+title("Angular Acceleration")
+grid on
+
+
+figure(13)
+subplot(3,1,1)
+plot(time, rad2deg(ThetaKalman))
+grid on
+ylabel("Degrees [°]")
+title("Angular Position")
+
+subplot(3,1,2)
+plot(time, rad2deg(ThetaDotKalman))
+grid on
+ylabel("Degrees [°/s]")
+title("Angular Velocity")
+
+subplot(3,1,3)
+plot(time, rad2deg(ThetaDDotKalman))
+ylabel("Degrees [°/s^2]")
+title("Angular Acceleration")
+grid on
+
 

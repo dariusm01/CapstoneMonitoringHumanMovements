@@ -1,12 +1,10 @@
 function Qk = FirstOrderPNC(SD,dt)
 
-% Still need to integrate!
-
-Qk = [SD*dt^2     0       0 SD*dt     0,     0
-             0 SD*dt^2       0     0  SD*dt     0;
-             0       0 SD*dt^2     0     0 SD*dt;
-         SD*dt       0       0    SD     0     0;
-             0   SD*dt       0     0    SD     0;
-             0       0   SD*dt     0     0    SD];
+Qk = [(SD*dt^3)/3     0       0 (SD*dt^2)/2     0     0
+             0 (SD*dt^3)/3    0     0  (SD*dt^2)/2    0;
+             0       0 (SD*dt^3)/3     0     0 (SD*dt^2)/2;
+         (SD*dt^2)/2       0      0    SD*dt     0   0;
+             0   (SD*dt^2)/2      0     0    SD*dt    0;
+             0       0   (SD*dt^2)/2    0     0    SD*dt];
 end
 
