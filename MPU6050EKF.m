@@ -7,7 +7,7 @@ load('imuInfo.mat')
 %% Accelerometer Noise Specs
 % Noise power spectral density (low noise mode) = 300 µg/√Hz
 
-dt = 1/500;
+dt = 1/100;
 
 %% Prediction 
 
