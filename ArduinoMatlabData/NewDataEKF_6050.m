@@ -1,11 +1,4 @@
-load('imuInfo.mat')
-
-%% Gyro Noise Specs:
-% Total RMS Noise = 0.1 °/s rms
-% Rate Noise spectral density = 0.01 °/s /√Hz
-
-%% Accelerometer Noise Specs
-% Noise power spectral density (low noise mode) = 300 µg/√Hz
+load("MPU6050_newSamples.mat")
 
 dt = 1/100;
 
@@ -13,15 +6,13 @@ dt = 1/100;
 
 % x = Fx + w
 
-F = [1 0 0 dt 0 0 0.5*dt^2 0 0; 
-     0 1 0 0 dt 0 0 0.5*dt^2 0; 
-     0 0 1 0 0 dt 0 0 0.5*dt^2; 
-     0 0 0 1 0 0 dt 0 0; 
-     0 0 0 0 1 0 0 dt 0; 
-     0 0 0 0 0 1 0 0 dt;
-     0 0 0 0 0 0 1 0 0;
-     0 0 0 0 0 0 0 1 0;
-     0 0 0 0 0 0 0 0 1];
+F = [1 0 0 dt 0 0; 
+     0 1 0 0 dt 0; 
+     0 0 1 0 0 dt; 
+     0 0 0 1 0 0; 
+     0 0 0 0 1 0; 
+     0 0 0 0 0 1];
+ 
  
 % Initial Angle Values - very hard to initialize 
 % and estimate hidden variables 
@@ -30,10 +21,8 @@ F = [1 0 0 dt 0 0 0.5*dt^2 0 0;
 % value for the observable variables
 PhiDot = phi_dot(1); ThetaDot = theta_dot(1); PsiDot = psi_dot(1); 
 
-PhiDD = 0; ThetaDD = 0; PsiDD = 0;
-
 % State Matrix
-Xk_1 = [Phi; Theta; Psi; PhiDot; ThetaDot; PsiDot; PhiDD; ThetaDD; PsiDD]; 
+Xk_1 = [phi(1); theta(1); psi(1); PhiDot; ThetaDot; PsiDot]; 
 
 % Covariance Matrix 
 Pk_1 = eye(length(F))*500;
@@ -45,21 +34,14 @@ GyroSpectralDensity = 0.01*sqrt(dt);
 
 Wk = 0;
 
-Qk = SecondOrderPNC(100,dt);
+Qk = FirstOrderPNC(GyroSpectralDensity,dt);
 
 % Measurement noise
+Rk = eye(size(Pk_1))*0.3;
 
-H = zeros(6,length(Xk_1));
-H(1,1) = 1;
-H(2,2) = 1;
-H(3,3) = 1;
-H(4,4) = 1;
-H(5,5) = 1;
-H(6,6) = 1;
+H = eye(size(Pk_1));
 
-Rk = eye(6)*0.3;
-
-I = eye(length(F));
+I = eye(size(H));
 
 %% Values we want to plot 
 
@@ -69,11 +51,6 @@ PsiKalman = [];
 PhiDotKalman = [];
 ThetaDotKalman = [];
 PsiDotKalman = [];
-
-% Euler Angle Acceleration
-PhiDDotKalman = [];
-ThetaDDotKalman = [];
-PsiDDotKalman = [];
 
 % Sensor was not moving so everything should be close to 0
 True = 0;
@@ -85,17 +62,11 @@ PosThetaSTD = [];
 SpeedPhiSTD = [];
 SpeedThetaSTD = [];
 
-AccelPhiSTD = [];
-AccelThetaSTD = [];
-
 ResidualPhi = [];
 ResidualTheta = [];
 
 ResidualPhiDot = [];
 ResidualThetaDot = [];
-
-ResidualPhiDDot = [];
-ResidualThetaDDot = [];
 
 for i = 1:length(time)
 
@@ -175,23 +146,16 @@ for i = 1:length(time)
     PhiDotKalman = [PhiDotKalman; Xk(4)];
     ThetaDotKalman = [ThetaDotKalman; Xk(5)];
     PsiDotKalman = [PsiDotKalman; Xk(6)];
-    PhiDDotKalman = [PhiDDotKalman; Xk(7)];
-    ThetaDDotKalman = [ThetaDDotKalman; Xk(8)];
-    PsiDDotKalman = [PsiDDotKalman; Xk(9)];
     
     PosPhiSTD = [PosPhiSTD; sqrt(Pk(1,1))];
     PosThetaSTD = [PosThetaSTD; sqrt(Pk(2,2))];
     SpeedPhiSTD = [SpeedPhiSTD; sqrt(Pk(4,4))];
     SpeedThetaSTD = [SpeedThetaSTD; sqrt(Pk(5,5))];
-    AccelPhiSTD = [AccelPhiSTD; sqrt(Pk(7,7))];
-    AccelThetaSTD = [AccelThetaSTD; sqrt(Pk(8,8))];
 
     ResidualPhi = [ResidualPhi; True-Xk(1)];
     ResidualTheta = [ResidualTheta; True-Xk(2)];
     ResidualPhiDot = [ResidualPhiDot; True-Xk(4)];
     ResidualThetaDot = [ResidualThetaDot; True-Xk(5)];
-    ResidualPhiDDot = [ResidualPhiDDot; True-Xk(7)];
-    ResidualThetaDDot = [ResidualThetaDDot; True-Xk(8)];
 end 
 
 %% Plotting
@@ -295,62 +259,3 @@ plot(time, rad2deg(ResidualThetaDot))
 plot(time, -3*rad2deg(SpeedThetaSTD), 'ko')
 hold off
 
-% figure(10)
-% plot(time, 3*rad2deg(AccelPhiSTD), 'ko')
-% title("Pitch Acceleration Residuals 3\sigma")
-% ylabel("Degrees [°/s^2]")
-% grid on
-% hold on
-% plot(time, rad2deg(ResidualPhiDDot))
-% plot(time, -3*rad2deg(AccelPhiSTD), 'ko')
-% hold off
-% 
-% figure(11)
-% plot(time, 3*rad2deg(AccelThetaSTD), 'ko')
-% title("Pitch Acceleration Residuals 3\sigma")
-% ylabel("Degrees [°/s^2]")
-% grid on
-% hold on
-% plot(time, rad2deg(ResidualThetaDDot))
-% plot(time, -3*rad2deg(AccelThetaSTD), 'ko')
-% hold off
-
-%% Plotting Derivatives
-
-figure(12)
-subplot(3,1,1)
-plot(time, rad2deg(PhiKalman))
-grid on
-ylabel("Degrees [°]")
-title("Angular Position")
-
-subplot(3,1,2)
-plot(time, rad2deg(PhiDotKalman))
-grid on
-ylabel("Degrees [°/s]")
-title("Angular Velocity")
-
-subplot(3,1,3)
-plot(time, rad2deg(PhiDDotKalman))
-ylabel("Degrees [°/s^2]")
-title("Angular Acceleration")
-grid on
-
-figure(13)
-subplot(3,1,1)
-plot(time, rad2deg(ThetaKalman))
-grid on
-ylabel("Degrees [°]")
-title("Angular Position")
-
-subplot(3,1,2)
-plot(time, rad2deg(ThetaDotKalman))
-grid on
-ylabel("Degrees [°/s]")
-title("Angular Velocity")
-
-subplot(3,1,3)
-plot(time, rad2deg(ThetaDDotKalman))
-ylabel("Degrees [°/s^2]")
-title("Angular Acceleration")
-grid on

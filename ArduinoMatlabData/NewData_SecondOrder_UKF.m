@@ -1,4 +1,25 @@
-load('imuInfo.mat')
+% An example of the first iteration of the unscented kalman filter for 
+% our project. 
+%   The steps include:
+%   1. Initializing the states and covariance
+%   2. Calculate sigma points (cholesky decomp for matrix sqrt)
+%   3. Prediction - > plug in sigma points into prediction equation
+%   4. Calculate the weights Wm & Wc (mean and covariance)
+%   5. Perform the Unscented Transform to get μx (prior) and Px
+%   6. Measurements -> use the μx & Px to find new sigma points
+%   7. Plug the new sigma points into the measurement model equation(s) 
+%   8. Find μz (unscented transform)
+%   9. Take measurement (z)
+%  10. Find Pz (measurement covariance)
+%  11. Calculate the cross - covariance (Pxz)
+%  12. Determine the kalman gain (K)
+%  13. Use the kalman gain to find the estimation (posterior)
+%  14. Update the covariance 
+%  15. Repeat for next time step
+
+addpath("/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/UnscentedFilter");
+
+load("MPU6050_newSamples.mat")
 
 %% Gyro Noise Specs:
 % Total RMS Noise = 0.1 °/s rms
@@ -9,20 +30,6 @@ load('imuInfo.mat')
 
 dt = 1/100;
 
-%% Prediction 
-
-% x = Fx + w
-
-F = [1 0 0 dt 0 0 0.5*dt^2 0 0; 
-     0 1 0 0 dt 0 0 0.5*dt^2 0; 
-     0 0 1 0 0 dt 0 0 0.5*dt^2; 
-     0 0 0 1 0 0 dt 0 0; 
-     0 0 0 0 1 0 0 dt 0; 
-     0 0 0 0 0 1 0 0 dt;
-     0 0 0 0 0 0 1 0 0;
-     0 0 0 0 0 0 0 1 0;
-     0 0 0 0 0 0 0 0 1];
- 
 % Initial Angle Values - very hard to initialize 
 % and estimate hidden variables 
 
@@ -32,11 +39,19 @@ PhiDot = phi_dot(1); ThetaDot = theta_dot(1); PsiDot = psi_dot(1);
 
 PhiDD = 0; ThetaDD = 0; PsiDD = 0;
 
-% State Matrix
-Xk_1 = [Phi; Theta; Psi; PhiDot; ThetaDot; PsiDot; PhiDD; ThetaDD; PsiDD]; 
+%% Initializing the states and covariance
 
-% Covariance Matrix 
-Pk_1 = eye(length(F))*500;
+states = [phi(1); theta(1); psi(1); PhiDot; ThetaDot; PsiDot; PhiDD; ThetaDD; PsiDD]; 
+
+P = 500*eye(length(states));
+
+beta = 2;
+kappa = 3-length(states);
+
+% 0 ≤ α ≤ 1 
+% Larger α spreads the sigma points further from the mean
+
+alpha = 0.2;
 
 % Noise
 AccelSpectralDensity = 300e-6*sqrt(dt);
@@ -47,19 +62,7 @@ Wk = 0;
 
 Qk = SecondOrderPNC(100,dt);
 
-% Measurement noise
-
-H = zeros(6,length(Xk_1));
-H(1,1) = 1;
-H(2,2) = 1;
-H(3,3) = 1;
-H(4,4) = 1;
-H(5,5) = 1;
-H(6,6) = 1;
-
 Rk = eye(6)*0.3;
-
-I = eye(length(F));
 
 %% Values we want to plot 
 
@@ -97,20 +100,35 @@ ResidualThetaDot = [];
 ResidualPhiDDot = [];
 ResidualThetaDDot = [];
 
-for i = 1:length(time)
+for iii = 1:length(time)
+    %% First, gather sigma points
 
-    % Prior
-    Xkp = F*Xk_1 + Wk;  
+    % The code accepts the states as a column vector (states x 1) like normal
+    % It then outputs a (states x sigma points) matrix
+    samplePoints = sigmaPoints(states,P,alpha); 
 
-    % Proccess Covariance matrix
-    Pkp = F*Pk_1*F.'+ Qk;  
-    
-    % Innovation Covariance
-    Sk = H*Pk_1*H.' + Rk;
-    
-    % Measurement (evidence)
- 
-    zk = [AccelX(i); AccelY(i); AccelZ(i); GyroX(i); GyroY(i); GyroZ(i)]; 
+    %% Then, pass the sigma points through your model (Prediction)
+    % Input the epoch (dt), sigma Points, and noise (wk)
+    NewPrediction = secondOrderUKFPropagation(dt, samplePoints, Wk);
+
+    %% Compute the weights 
+    [Wc, Wm] = weights(NewPrediction,alpha,beta);
+
+    %% Perform the Unscented Transform by summing the sample mean and covariances
+    %% With their respective weights to produce a new mean and covariance
+
+    Mu_x = NewPrediction*Wm; % Prior
+
+    Px = PredictCovarianceUKF(NewPrediction, samplePoints, Mu_x ,Wc, Qk);
+
+    %% Measurements
+    % First get the new sigma points from the newly calculated mean and
+    % covariance
+
+    newSigmaPoints = sigmaPoints(Mu_x,Px,alpha);
+
+    %% Passing sigma points through non linear measurement model:
+    % the measurement function converts the filter’s prior into a measurement
     
     % Measurement Model Accelerometer
     
@@ -125,48 +143,46 @@ for i = 1:length(time)
     % |q|  =  | θcos(φ) + ψcos(θ)sin(φ)  |
     %           .               .
     % |r|     | ψcos(θ)cos(φ) - θsin(φ)  |
+
+    newMeasurementSigmaPoints = zeros(6,length(samplePoints));
     
-    % the measurement function converts the filter’s prior into a measurement
-    h_of_x = [-sin(Xkp(2));
-              cos(Xkp(2))*sin(Xkp(1));
-              cos(Xkp(2))*cos(Xkp(1));
-              Xkp(4)-(Xkp(6)*sin(Xkp(2)));
-              Xkp(5)*cos(Xkp(1)) + Xkp(6)*cos(Xkp(2))*sin(Xkp(1));
-              Xkp(6)*cos(Xkp(2))*cos(Xkp(1)) - Xkp(5)*sin(Xkp(1))];
+    for i = 1:length(newMeasurementSigmaPoints)
+        newMeasurementSigmaPoints(1,i) = -sin(newSigmaPoints(2,i));
+        newMeasurementSigmaPoints(2,i) = cos(newSigmaPoints(2,i))*sin(newSigmaPoints(1,i)); 
+        newMeasurementSigmaPoints(3,i) = cos(newSigmaPoints(2,i))*cos(newSigmaPoints(1,i));
+        newMeasurementSigmaPoints(4,i) = newSigmaPoints(4,i) - newSigmaPoints(6,i)*sin(newSigmaPoints(2,i));
+        newMeasurementSigmaPoints(5,i) = newSigmaPoints(5,i)*cos(newSigmaPoints(1,i)) + newSigmaPoints(6,i)*cos(newSigmaPoints(2,i))*sin(newSigmaPoints(1,i));
+        newMeasurementSigmaPoints(6,i) = newSigmaPoints(6,i)*cos(newSigmaPoints(2,i))*cos(newSigmaPoints(1,i)) - newSigmaPoints(5,i)*sin(newSigmaPoints(1,i));
+    end 
+
+    Mu_z = newMeasurementSigmaPoints*Wm;
+
+    %% Measurment covariance
+    Pz = PredictCovarianceUKF(newMeasurementSigmaPoints, newSigmaPoints, Mu_z, Wc, Rk);
+
+    % measurements from sensor
+    % (1:3) = accelerometer, (4:6) = gyroscope
+    sensorReadings = [AccelX(iii); AccelY(iii); AccelZ(iii); GyroX(iii); GyroY(iii); GyroZ(iii)];
+    z = sensorReadings;
     
-          
-    %% Measurment Jacobian 
-    H(1,1) = 0; H(1,2) = -cos(Xkp(2)); 
-    H(2,1) = cos(Xkp(1))*cos(Xkp(2)); H(2,2) = -sin(Xkp(1))*sin(Xkp(2));
-    H(3,1) = -cos(Xkp(2))*sin(Xkp(1)); H(3,2) = -cos(Xkp(1))*sin(Xkp(2)); H(3,3) = 0;
-    H(4,2) = -Xkp(6)*cos(Xkp(2)); H(4,6) = -sin(Xkp(2));
-    H(5,1) = Xkp(6)*cos(Xkp(1))*cos(Xkp(2));
-    H(5,2) = -Xkp(6)*sin(Xkp(1))*sin(Xkp(2));
-    H(5,3) = -Xkp(5)*sin(Xkp(3));
-    H(5,5) = cos(Xkp(3));
-    H(5,6) = cos(Xkp(2))*sin(Xkp(3));
-    H(6,1) = -Xkp(5)*cos(Xkp(1)) - Xkp(6)*cos(Xkp(2))*sin(Xkp(1));
-    H(6,2) = -Xkp(6)*cos(Xkp(1))*sin(Xkp(2));
-    H(6,5) = -sin(Xkp(1));
-    H(6,6) = cos(Xkp(1))*cos(Xkp(2));
+    %% Cross Covariance
+    Pxz = CrossCovariance(Mu_x, Mu_z, newSigmaPoints, newMeasurementSigmaPoints, Wc);
+
+    %% Kalman Gain
+    K = Pxz*(Pz)^-1;
+
+    %% Compute the posterior using the prior and measurement residual
+    y = z-Mu_z;
     
-    % Innovation (Residual)
-    yk = zk - h_of_x;
+    %% Update the state
+    Xk = Mu_x + K*y;
+
+    %% Update the covariance
+    Pk = Px - K*(Pz)*K.';
     
-    % Kalman Gain  
-    K = Pkp*H.'*(Sk^-1);
-    
-    % Posterior 
-    Xk = Xkp + K*yk;
-    
-    % Covariance Update
-    Pk = (I - K*H)*Pkp*(I - K*H).' + (K*Rk*K.');
-    
-    % Redefining for next iteration
-    Xk_1 = Xk;
-    
-    Pk_1 = Pk;
-    
+    %% Repeat for next iteration
+    states = Xk;
+    P = Pk;
     
     % Store for plotting
     PhiKalman = [PhiKalman; Xk(1)];
@@ -204,7 +220,7 @@ ylabel("Degrees Per Second [°/s]")
 grid on
 hold on 
 plot(time, rad2deg(PhiDotKalman),'LineWidth',1)
-legend("Measured Gyro data \phi", "Extended Kalman Filter Gyro data \phi")
+legend("Measured Gyro data \phi", "Unscented Kalman Filter Gyro data \phi")
 hold off
 
 figure(2)
@@ -215,7 +231,7 @@ ylabel("Degrees Per Second [°/s]")
 grid on
 hold on 
 plot(time, rad2deg(ThetaDotKalman),'LineWidth',1)
-legend("Measured Gyro data \theta", "Extended Kalman Filter Gyro \theta")
+legend("Measured Gyro data \theta", "Unscented Kalman Filter Gyro \theta")
 hold off
 
 figure(3)
@@ -226,7 +242,7 @@ ylabel("Degrees Per Second [°/s]")
 grid on
 hold on 
 plot(time, rad2deg(PsiDotKalman),'LineWidth',1)
-legend("Measured Gyro data \psi", "Extended Kalman Filter Gyro \psi")
+legend("Measured Gyro data \psi", "Unscented Kalman Filter Gyro \psi")
 hold off
 
 
@@ -238,8 +254,8 @@ ylabel("Degrees [°]")
 grid on
 hold on 
 plot(time, rad2deg(phi),'LineWidth',1)
-legend("Extended Kalman Filter \phi", "Gyroscope \phi")
-% legend("Extended Kalman Filter \Phi")
+legend("Unscented Kalman Filter \phi", "Gyroscope \phi")
+% legend("Unscented Kalman Filter \Phi")
 hold off
 
 figure(5)
@@ -250,8 +266,8 @@ ylabel("Degrees [°]")
 grid on
 hold on 
 plot(time, rad2deg(theta),'LineWidth',1)
-legend("Extended Kalman Filter \theta", "Gyroscope \theta")
-%legend("Extended Kalman Filter \Theta")
+legend("Unscented Kalman Filter \theta", "Gyroscope \theta")
+%legend("Unscented Kalman Filter \Theta")
 hold off
 
 % Plotting Residuals
@@ -336,6 +352,7 @@ ylabel("Degrees [°/s^2]")
 title("Angular Acceleration")
 grid on
 
+
 figure(13)
 subplot(3,1,1)
 plot(time, rad2deg(ThetaKalman))
@@ -354,3 +371,5 @@ plot(time, rad2deg(ThetaDDotKalman))
 ylabel("Degrees [°/s^2]")
 title("Angular Acceleration")
 grid on
+
+

@@ -1,4 +1,4 @@
-load('imuInfo.mat')
+load("MPU6050_newSamples.mat")
 
 %% Gyro Noise Specs:
 % Total RMS Noise = 0.1 °/s rms
@@ -33,7 +33,7 @@ PhiDot = phi_dot(1); ThetaDot = theta_dot(1); PsiDot = psi_dot(1);
 PhiDD = 0; ThetaDD = 0; PsiDD = 0;
 
 % State Matrix
-Xk_1 = [Phi; Theta; Psi; PhiDot; ThetaDot; PsiDot; PhiDD; ThetaDD; PsiDD]; 
+Xk_1 = [phi(1); theta(1); psi(1); PhiDot; ThetaDot; PsiDot; PhiDD; ThetaDD; PsiDD]; 
 
 % Covariance Matrix 
 Pk_1 = eye(length(F))*500;

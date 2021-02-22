@@ -17,9 +17,9 @@
 %  14. Update the covariance 
 %  15. Repeat for next time step
 
-addpath("UnscentedFilter");
+addpath("/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/UnscentedFilter");
 
-load('imuInfo.mat')
+load("MPU6050_newSamples.mat")
 
 %% Gyro Noise Specs:
 % Total RMS Noise = 0.1 °/s rms
@@ -40,7 +40,7 @@ PhiDot = phi_dot(1); ThetaDot = theta_dot(1); PsiDot = psi_dot(1);
 %% Initializing the states and covariance
 P = 500*eye(6);
 
-states = [Phi; Theta; Psi; PhiDot; ThetaDot; PsiDot];
+states = [phi(1); theta(1); psi(1); PhiDot; ThetaDot; PsiDot];
 
 beta = 2;
 kappa = 3-length(states);
