@@ -78,10 +78,10 @@ for i = 1:length(time)
     Xkp = F*Xk_1 + G*u + Wk;  
 
     % Proccess Covariance matrix
-    Pkp = F*Pk_1*F.'+ Qk;  
+    Mk = F*Pk_1*F.'+ Qk;  
     
     % Innovation Covariance
-    Sk = H*Pk_1*H.' + Rk;
+    Sk = H*Mk*H.' + Rk;
     
     % Measurement (evidence)
  
@@ -97,13 +97,13 @@ for i = 1:length(time)
     yk = zk - Xkp;
     
     % Kalman Gain  
-    K = Pkp*H.'*pinv(Sk);
+    K = Mk*H.'*pinv(Sk);
     
     % Posterior 
     Xk = Xkp + K*yk;
     
     % Covariance Update
-    Pk = (I - K*H)*Pkp*(I - K*H).' + (K*Rk*K.');
+    Pk = (I - K*H)*Mk*(I - K*H).' + (K*Rk*K.');
     
     % Redefining for next iteration
     Xk_1 = Xk;
