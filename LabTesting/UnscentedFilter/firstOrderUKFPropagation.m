@@ -1,12 +1,8 @@
 function NewPoints = firstOrderUKFPropagation(sigmaPoints, dt, Gyro, wk)
 
-F = [1 0 0; 
-     0 1 0; 
-     0 0 1];
- 
-G = [dt 0 0; 
-     0 dt 0; 
-     0 0 dt];
+F = eye(3);
+
+G = F*dt;
  
 possibleStates = zeros(size(sigmaPoints));
 
