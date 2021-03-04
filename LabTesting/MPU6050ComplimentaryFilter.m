@@ -1,13 +1,13 @@
 
 %% Getting Accelerometer Data (in NED frame)
-mat = readtable("/Users/dariusmensah/Desktop/LabTesting/MPU_6050/z_AxisRotation.xlsx");
+mat = readtable("/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/LabTesting/MPU_6050/x_AxisRotation.xlsx");
 
 AccelX = mat.AccelY;
 AccelY = mat.AccelX;
 AccelZ = mat.AccelZ * -1;
 
 %% Getting Euler Angles
-otherMat = readtable("/Users/dariusmensah/Desktop/LabTesting/MPU_6050/NED_Frame/z_AxisEulerAngles.xlsx");
+otherMat = readtable("/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/LabTesting/MPU_6050/NED_Frame/x_AxisEulerAngles.xlsx");
 
 phi = otherMat.Phi;
 theta = otherMat.Theta;

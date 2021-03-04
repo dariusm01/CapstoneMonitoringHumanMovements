@@ -36,6 +36,8 @@ G = [dt 0 0;
  
 zk = [0;0;0];
 
+h_of_x = zk; 
+
 % State Matrix
 Xk_1 = [Phi; Theta; Psi];
 
@@ -84,17 +86,17 @@ for i = 1:length(time)
     Sk = H*Pk_1*H.' + Rk;
     
     % Measurement (evidence)
- 
-    AccelMeasure = [AccelX(i); AccelY(i); AccelZ(i)];
-    ax = AccelMeasure(1); ay = AccelMeasure(2); az = AccelMeasure(3);
+    zk = [AccelX(i); AccelY(i); AccelZ(i)];
     
     % Measurement Model Accelerometer
-    zk(1) = atan2(ay,(sqrt(ax^2+az^2)));
-    zk(2) = atan2(-ax,(sqrt(ay^2+az^2)));
-    zk(3) = atan2(sqrt(ax^2+az^2),az);
+    [ax,ay,az] = AccelModel(Xkp(1), Xkp(2));
+    
+    h_of_x = [ax;ay;az];
+    
+    H = MeasurementJacobian(Xkp(1), Xkp(2));
   
     % Innovation (Residual)
-    yk = zk - Xkp;
+    yk = zk - h_of_x;
     
     % Kalman Gain  
     K = Pkp*H.'*pinv(Sk);
@@ -144,7 +146,7 @@ translations(:,end) = [];
 %     plotTransforms(translations(jj,:),q(jj,:),"InertialZDirection","down")
 %     pause(0.00005)
 % end
-
+% 
 % plotTransforms(translations,q)
 
 % x-axis = green

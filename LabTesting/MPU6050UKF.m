@@ -20,7 +20,7 @@
 addpath("UnscentedFilter");
 
 %% Getting Accelerometer Data (in NED frame)
-mat = readtable("/Users/dariusmensah/Desktop/LabTesting/MPU_6050/z_AxisRotation.xlsx");
+mat = readtable("/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/LabTesting/MPU_6050/x_AxisRotation.xlsx");
 
 AccelX = mat.AccelY;
 AccelY = mat.AccelX;
@@ -84,7 +84,7 @@ for iii = 1:length(time)
     samplePoints = sigmaPoints(states,P,alpha); 
 
     %% Then, pass the sigma points through your model (Prediction)
-    % Input the epoch (dt), sigma Points, the input (u), and noise (wk)
+    % Input the epoch (dt), sigma Points, and noise (wk)
     NewPrediction = firstOrderUKFPropagation(samplePoints, dt, Gyro, Wk);
     
     %% Compute the weights 
@@ -127,7 +127,6 @@ for iii = 1:length(time)
     Pz = PredictCovarianceUKF(newMeasurementSigmaPoints, newSigmaPoints, Mu_z, Wc, Rk);
 
     % measurements from sensor
-    % (1:3) = accelerometer
     sensorReadings = [AccelX(iii); AccelY(iii); AccelZ(iii)];
     z = sensorReadings;
     
