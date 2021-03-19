@@ -17,6 +17,9 @@
 #define PRINTSCANRESULTS 0
 #define PINGS 12
 #define CLOCKDATA 8
+#define BUFFERSIZE 11904
+#define MAXMESSAGELENGTH 30
+#define SCANTIME 12000
 
 LSM9DS1 imu;
 
@@ -46,6 +49,7 @@ const int BoardLED = 13;
 //Setting the touch constants
 const int powerPin = 12;
 const int wirelessPin = 27;
+const int batVoltagePin = 35;
 
 //Where the wakeup status will be stored
 touch_pad_t touchPin;
@@ -123,6 +127,14 @@ deltaClk dClkResult;
 
 String Acc, Gyro, Mag;
 
+String rawDataString;
+
+bool stopSync = false;
+unsigned long int stopSyncStart;
+
+char wBuffer[BUFFERSIZE];
+
+float calcVolt;
 
 void setup() {
   //Start the serial monitor
@@ -139,12 +151,12 @@ void setup() {
 
   Serial.println("Generating Folders and Config File");
   Wire.begin(); //starting wires
-
+  Wire.setClock(1000000);
   //initialize microSD card module
   while (!initializeMicroSD()) {
     Serial.println("Something wrong with microSD card or module");
     Serial.println("Check wiring or if card is present");
-    delay(5000);  //will wait 5 seconds before trying again
+    delay(2000);  //will wait 5 seconds before trying again
   }
   createFiles();
   //  while (!baseFileCreate()) {
@@ -191,6 +203,10 @@ void loop() {
         switch (pressType) {
           case 1:
             Serial.println("Battery Level Requested");
+            Serial.print("Current Voltage: ");
+            calcVolt = (analogRead(batVoltagePin)*2*3.7)/4095;
+            Serial.print(calcVolt);
+            Serial.println("V");
             break;
           case 2:
             //Putting ESP32 to sleep to save power while 'off'
@@ -258,38 +274,150 @@ void loop() {
       //        appendFile(SD, m_path, Mag.c_str());
       //      }
       if (dClkResult.sign) { //add
-        if (imu.gyroAvailable()) {
-          imu.readGyro();
-          Gyro = String(millis() + dClkResult.clk) + "," + String(imu.gx) + "," + String(imu.gy) + "," + String(imu.gz) + "\r\n";
-          appendFile(SD, a_path_c, Gyro.c_str());
-        }
-        if (imu.accelAvailable()) {
-          imu.readAccel();
-          Acc = String(millis() + dClkResult.clk) + "," + String(imu.ax) + "," + String(imu.ay) + "," + String(imu.az) + "\r\n";
-          appendFile(SD, g_path_c, Acc.c_str());
-        }
-        if (imu.magAvailable()) {
-          imu.readMag();
-          Mag = String(millis() + dClkResult.clk) + "," + String(imu.mx) + "," + String(imu.my) + "," + String(imu.mz) + "\r\n";
-          appendFile(SD, m_path_c, Mag.c_str());
+//        if (imu.gyroAvailable()) {
+//          imu.readGyro();
+//          Gyro = String(millis() + dClkResult.clk) + "," + String(imu.gx) + "," + String(imu.gy) + "," + String(imu.gz) + "\r\n";
+//          appendFile(SD, a_path_c, Gyro.c_str());
+//        }
+//        if (imu.accelAvailable()) {
+//          imu.readAccel();
+//          Acc = String(millis() + dClkResult.clk) + "," + String(imu.ax) + "," + String(imu.ay) + "," + String(imu.az) + "\r\n";
+//          appendFile(SD, g_path_c, Acc.c_str());
+//        }
+//        if (imu.magAvailable()) {
+//          imu.readMag();
+//          Mag = String(millis() + dClkResult.clk) + "," + String(imu.mx) + "," + String(imu.my) + "," + String(imu.mz) + "\r\n";
+//          appendFile(SD, m_path_c, Mag.c_str());
+//        }
+
+        if (imu.accelAvailable()){
+        imu.readAccel();
+        rawDataString = String(millis()+ dClkResult.clk) + "," + String(imu.ax) + "," + String(imu.ay) + "," + String(imu.az)+ ",a\n";
+        strcat(wBuffer,rawDataString.c_str());
+        if(BUFFERSIZE - strlen(wBuffer) < MAXMESSAGELENGTH){
+            //unsigned long int startWrite = millis();
+            appendFile(SD,g_path_c,wBuffer);
+            //Serial.println(millis() - startWrite);
+            memset(wBuffer, 0, sizeof(wBuffer));
+          }
+      }
+
+      if (imu.gyroAvailable()){
+        imu.readGyro();
+        rawDataString = String(millis()+ dClkResult.clk) + "," + String(imu.gx) + "," + String(imu.gy) + "," + String(imu.gz)+ ",g\n";
+        strcat(wBuffer,rawDataString.c_str());
+        if(BUFFERSIZE - strlen(wBuffer) < MAXMESSAGELENGTH){
+            //unsigned long int startWrite = millis();
+            appendFile(SD,g_path_c,wBuffer);
+            //Serial.println(millis() - startWrite);
+            memset(wBuffer, 0, sizeof(wBuffer));
+          }
+      }
+
+      if (imu.magAvailable()){
+        imu.readMag();
+        rawDataString = String(millis()+ dClkResult.clk) + "," + String(imu.mx) + "," + String(imu.my) + "," + String(imu.mz)+ ",m\n";
+        strcat(wBuffer,rawDataString.c_str());
+        if(BUFFERSIZE - strlen(wBuffer) < MAXMESSAGELENGTH){
+            //unsigned long int startWrite = millis();
+            appendFile(SD,g_path_c,wBuffer);
+            //Serial.println(millis() - startWrite);
+            memset(wBuffer, 0, sizeof(wBuffer));
+          }
+      }
+
+
+    if(touchRead(powerPin) < pinTouch && !stopSync){
+      Serial.println("Attempt to stop collecting data");
+      stopSyncStart = millis();
+      stopSync = true;
+    }
+
+    if(stopSync){
+      if(touchRead(powerPin) <  pinTouch){
+        if(millis() - stopSyncStart > 3000){
+          Serial.println("Power button Held...");
+          curr_state = SLEEP;
         }
       }
+      else{
+        stopSync = false;
+      }
+    }
+
+
+        
+      }
       else {
-        if (imu.gyroAvailable()) {
-          imu.readGyro();
-          Gyro = String(millis() - dClkResult.clk) + "," + String(imu.gx) + "," + String(imu.gy) + "," + String(imu.gz) + "\r\n";
-          appendFile(SD, a_path_c, Gyro.c_str());
+//        if (imu.gyroAvailable()) {
+//          imu.readGyro();
+//          Gyro = String(millis() - dClkResult.clk) + "," + String(imu.gx) + "," + String(imu.gy) + "," + String(imu.gz) + "\r\n";
+//          appendFile(SD, a_path_c, Gyro.c_str());
+//        }
+//        if (imu.accelAvailable()) {
+//          imu.readAccel();
+//          Acc = String(millis() - dClkResult.clk) + "," + String(imu.ax) + "," + String(imu.ay) + "," + String(imu.az) + "\r\n";
+//          appendFile(SD, g_path_c, Acc.c_str());
+//        }
+//        if (imu.magAvailable()) {
+//          imu.readMag();
+//          Mag = String(millis() - dClkResult.clk) + "," + String(imu.mx) + "," + String(imu.my) + "," + String(imu.mz) + "\r\n";
+//          appendFile(SD, m_path_c, Mag.c_str());
+//        }
+if (imu.accelAvailable()){
+        imu.readAccel();
+        rawDataString = String(millis()- dClkResult.clk) + "," + String(imu.ax) + "," + String(imu.ay) + "," + String(imu.az)+ ",a\n";
+        strcat(wBuffer,rawDataString.c_str());
+        if(BUFFERSIZE - strlen(wBuffer) < MAXMESSAGELENGTH){
+            //unsigned long int startWrite = millis();
+            appendFile(SD,g_path_c,wBuffer);
+            //Serial.println(millis() - startWrite);
+            memset(wBuffer, 0, sizeof(wBuffer));
+          }
+      }
+
+      if (imu.gyroAvailable()){
+        imu.readGyro();
+        rawDataString = String(millis()- dClkResult.clk) + "," + String(imu.gx) + "," + String(imu.gy) + "," + String(imu.gz)+ ",g\n";
+        strcat(wBuffer,rawDataString.c_str());
+        if(BUFFERSIZE - strlen(wBuffer) < MAXMESSAGELENGTH){
+            //unsigned long int startWrite = millis();
+            appendFile(SD,g_path_c,wBuffer);
+            //Serial.println(millis() - startWrite);
+            memset(wBuffer, 0, sizeof(wBuffer));
+          }
+      }
+
+      if (imu.magAvailable()){
+        imu.readMag();
+        rawDataString = String(millis()- dClkResult.clk) + "," + String(imu.mx) + "," + String(imu.my) + "," + String(imu.mz)+ ",m\n";
+        strcat(wBuffer,rawDataString.c_str());
+        if(BUFFERSIZE - strlen(wBuffer) < MAXMESSAGELENGTH){
+            //unsigned long int startWrite = millis();
+            appendFile(SD,g_path_c,wBuffer);
+            //Serial.println(millis() - startWrite);
+            memset(wBuffer, 0, sizeof(wBuffer));
+          }
+      }
+
+
+    if(touchRead(powerPin) < pinTouch && !stopSync){
+      Serial.println("Attempt to stop collecting data");
+      stopSyncStart = millis();
+      stopSync = true;
+    }
+
+    if(stopSync){
+      if(touchRead(powerPin) <  pinTouch){
+        if(millis() - stopSyncStart > 3000){
+          Serial.println("Power button Held...");
+          curr_state = SLEEP;
         }
-        if (imu.accelAvailable()) {
-          imu.readAccel();
-          Acc = String(millis() - dClkResult.clk) + "," + String(imu.ax) + "," + String(imu.ay) + "," + String(imu.az) + "\r\n";
-          appendFile(SD, g_path_c, Acc.c_str());
-        }
-        if (imu.magAvailable()) {
-          imu.readMag();
-          Mag = String(millis() - dClkResult.clk) + "," + String(imu.mx) + "," + String(imu.my) + "," + String(imu.mz) + "\r\n";
-          appendFile(SD, m_path_c, Mag.c_str());
-        }
+      }
+      else{
+        stopSync = false;
+      }
+    }
       }
 
       break;
@@ -602,7 +730,7 @@ void writeFile(fs::FS &fs, const char * path, const char * message) {
 }
 
 void appendFile(fs::FS &fs, const char * path, const char * message) {
-  Serial.printf("Appending to file: %s\n", path);
+  //Serial.printf("Appending to file: %s\n", path);
   File file = fs.open(path, FILE_APPEND);
   if (!file) {
     Serial.println("Failed to open file for appending");
