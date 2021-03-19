@@ -15,6 +15,9 @@
 #define NUMPEERS 20               //max number of paired devices at one time
 #define CHANNEL 1                 //channel to send info
 #define PRINTSCANRESULTS 0
+#define BUFFERSIZE 11904
+#define MAXMESSAGELENGTH 30
+#define SCANTIME 12000
 
 LSM9DS1 imu;
 
@@ -48,6 +51,7 @@ const int BoardLED = 13;
 //Setting the touch constants
 const int powerPin = 12;
 const int wirelessPin = 27;
+const int batVoltagePin = 35;
 
 //Where the wakeup status will be stored
 touch_pad_t touchPin;
@@ -69,30 +73,6 @@ const int resolution = 8;
 //Creating session Global Variable
 uint16_t session;
 
-//DOESNT WORK
-//Defining structs for file paths
-//Raw data struct
-//typedef struct rawDataPath {
-//  const char* a_path;           //the file path for the raw accelerometer data
-//  const char* g_path;           //the file path for the raw gyroscope data
-//  const char* m_path;           //the file path for the raw magnetometer data
-//} rawDataPath;                  //naming the struct
-//
-//typedef struct filePaths {
-//  struct rawDataPath raw;
-//  String base;                  //base path for folder
-//  const char* config;           //I have no Idea what this was supposed to be
-//  const char* base_c;
-//} filePaths;
-//
-////Defining struct
-//filePaths path;
-
-//const char* a_path;
-//const char* g_path;
-//const char* m_path;
-//const char* config_path;
-//String baseFolder;
 String a_path;
 String g_path;
 String m_path;
@@ -137,8 +117,16 @@ bool syncStatus[NUMPEERS] = {1};          //sync status of the peers
 
 unsigned long int latency[NUMPEERS][10];    //latency of the pings
 
-String Acc, Gyro, Mag;
+String rawDataString;
 
+unsigned long int tempNum = 0;
+
+bool stopSync = false;
+unsigned long int stopSyncStart;
+
+char wBuffer[BUFFERSIZE];
+
+float calcVolt;
 
 void setup() {
   //Start the serial monitor
@@ -155,12 +143,13 @@ void setup() {
 
   Serial.println("Generating Folders and Config File");
   Wire.begin(); //starting wires
+  Wire.setClock(1000000);
 
   //initialize microSD card module
   while (!initializeMicroSD()) {
     Serial.println("Something wrong with microSD card or module");
     Serial.println("Check wiring or if card is present");
-    delay(5000);  //will wait 5 seconds before trying again
+    delay(2000);  //will wait 2 seconds before trying again
   }
   createFiles();
 //  while (!baseFileCreate()) {
@@ -207,6 +196,10 @@ void loop() {
         switch (pressType) {
           case 1:
             Serial.println("Battery Level Requested");
+            Serial.print("Current Voltage: ");
+            calcVolt = (analogRead(batVoltagePin)*2*3.7)/4095;
+            Serial.print(calcVolt);
+            Serial.println("V");
             break;
           case 2:
             //Putting ESP32 to sleep to save power while 'off'
@@ -245,7 +238,7 @@ void loop() {
       esp_deep_sleep_start();
       break;
     case PAIR :
-      while ( millis() - scanStart < 30000) {
+      while ( millis() - scanStart < SCANTIME) {
         switch (currSyncStatus) {
           case SCANNING :
             scanForPeers();
@@ -306,42 +299,68 @@ void loop() {
             break;
         }
       }
-      if (millis() - scanStart > 30000) {
+      if (millis() - scanStart > SCANTIME) {
         deinitWiFi();
         curr_state = STANDBY;
       }
       break;
     case DATA_LOG :
-//      if (imu.gyroAvailable()) {
-//        imu.readGyro();
-//        Gyro = String(millis()) + "," + String(imu.gx) + "," + String(imu.gy) + "," + String(imu.gz) + "\r\n";
-//        appendFile(SD, g_path, Gyro.c_str());
-//      }
-//      if (imu.accelAvailable()) {
-//        imu.readAccel();
-//        Acc = String(millis()) + "," + String(imu.ax) + "," + String(imu.ay) + "," + String(imu.az) + "\r\n";
-//        appendFile(SD, a_path, Acc.c_str());
-//      }
-//      if (imu.magAvailable()) {
-//        imu.readMag();
-//        Mag = String(millis()) + "," + String(imu.mx) + "," + String(imu.my) + "," + String(imu.mz) + "\r\n";
-//        appendFile(SD, m_path, Mag.c_str());
-//      }
-if (imu.gyroAvailable()){
-    imu.readGyro();
-    Gyro = String(millis()) + "," + String(imu.gx) + "," + String(imu.gy) + "," + String(imu.gz)+ "\r\n";
-    appendFile(SD,a_path_c,Gyro.c_str());
-  }
-  if (imu.accelAvailable()){
-    imu.readAccel();
-    Acc = String(millis()) + "," + String(imu.ax) + "," + String(imu.ay) + "," + String(imu.az)+ "\r\n";
-    appendFile(SD,g_path_c,Acc.c_str());
-  }
-  if (imu.magAvailable()){
-    imu.readMag();
-    Mag = String(millis()) + "," + String(imu.mx) + "," + String(imu.my) + "," + String(imu.mz)+ "\r\n";
-    appendFile(SD,m_path_c,Mag.c_str());
-  }
+
+      if (imu.accelAvailable()){
+        imu.readAccel();
+        rawDataString = String(millis()) + "," + String(imu.ax) + "," + String(imu.ay) + "," + String(imu.az)+ ",a\n";
+        strcat(wBuffer,rawDataString.c_str());
+        if(BUFFERSIZE - strlen(wBuffer) < MAXMESSAGELENGTH){
+            //unsigned long int startWrite = millis();
+            appendFile(SD,g_path_c,wBuffer);
+            //Serial.println(millis() - startWrite);
+            memset(wBuffer, 0, sizeof(wBuffer));
+          }
+      }
+
+      if (imu.gyroAvailable()){
+        imu.readGyro();
+        rawDataString = String(millis()) + "," + String(imu.gx) + "," + String(imu.gy) + "," + String(imu.gz)+ ",g\n";
+        strcat(wBuffer,rawDataString.c_str());
+        if(BUFFERSIZE - strlen(wBuffer) < MAXMESSAGELENGTH){
+            //unsigned long int startWrite = millis();
+            appendFile(SD,g_path_c,wBuffer);
+            //Serial.println(millis() - startWrite);
+            memset(wBuffer, 0, sizeof(wBuffer));
+          }
+      }
+
+      if (imu.magAvailable()){
+        imu.readMag();
+        rawDataString = String(millis()) + "," + String(imu.mx) + "," + String(imu.my) + "," + String(imu.mz)+ ",m\n";
+        strcat(wBuffer,rawDataString.c_str());
+        if(BUFFERSIZE - strlen(wBuffer) < MAXMESSAGELENGTH){
+            //unsigned long int startWrite = millis();
+            appendFile(SD,g_path_c,wBuffer);
+            //Serial.println(millis() - startWrite);
+            memset(wBuffer, 0, sizeof(wBuffer));
+          }
+      }
+
+
+    if(touchRead(powerPin) < pinTouch && !stopSync){
+      Serial.println("Attempt to stop collecting data");
+      stopSyncStart = millis();
+      stopSync = true;
+    }
+
+    if(stopSync){
+      if(touchRead(powerPin) <  pinTouch){
+        if(millis() - stopSyncStart > 3000){
+          Serial.println("Power button Held...");
+          curr_state = SLEEP;
+        }
+      }
+      else{
+        stopSync = false;
+      }
+    }
+      
       break;
   }
 
@@ -354,62 +373,6 @@ boolean initIMU() {
   return true;
 }
 
-//boolean baseFileCreate() {
-//  //creating directories
-//  //create config file
-//  String configFolder, cfig;
-//  String Mac = WiFi.macAddress();
-//  Mac.replace(":", "_");
-//  baseFolder = "/" + Mac + "_" + String(session);
-//  
-//  configFolder = baseFolder + "/config";
-//  cfig = configFolder + "/config.txt";
-//  config_path = cfig.c_str();
-//  File configFile = SD.open(config_path);
-//  if (!configFile) {
-//    Serial.println("Creating Files and Directories");
-//    createDir(SD, baseFolder.c_str());
-//    createDir(SD, configFolder.c_str());
-//    writeFile(SD, config_path, "------------------------------------");
-//  }
-//  else {
-//    Serial.println("File already Exisits!");
-//    return false;
-//  }
-//  configFile.close();
-//  return true;
-//}
-//
-//boolean imuRawFileCreate() {
-//  String rawFolder = baseFolder + "/rawdata";
-//  String a_pat, g_pat, m_pat;
-//  a_pat = rawFolder + "/Acc.csv";
-//  g_pat = rawFolder + "/Gyro.csv";
-//  m_pat = rawFolder + "/Mag.csv";
-//  a_path = a_pat.c_str();
-//  g_path = g_pat.c_str();
-//  m_path = m_pat.c_str();
-//
-//  File a_file = SD.open(a_path);
-//  File g_file = SD.open(g_path);
-//  File m_file = SD.open(m_path);
-//
-//  if (!a_file || !g_file || m_file) {
-//    Serial.println("Files are not found");
-//    Serial.println("Creating Directory and files...");
-//    createDir(SD, rawFolder.c_str());
-//    writeFile(SD, a_path, "Time(milliseconds),X,Y,Z\r\n");
-//    writeFile(SD, g_path, "Time(milliseconds),X,Y,Z\r\n");
-//    writeFile(SD, m_path, "Time(milliseconds),X,Y,Z\r\n");
-//  }
-//  else {
-//    Serial.println("Files already exist! Something went wrong.");
-//    return false;
-//  }
-//  String confup = "Successfully generated raw data IMU Files\r\n";
-//  appendFile(SD, config_path, confup.c_str());
-//  return true;
-//}
 
 void createFiles(){
   folder =  "/" + Sensor_ID + "_" + String(session);
@@ -699,7 +662,7 @@ void writeFile(fs::FS &fs, const char * path, const char * message) {
 }
 
 void appendFile(fs::FS &fs, const char * path, const char * message) {
-  Serial.printf("Appending to file: %s\n", path);
+  //Serial.printf("Appending to file: %s\n", path);
   File file = fs.open(path, FILE_APPEND);
   if (!file) {
     Serial.println("Failed to open file for appending");
