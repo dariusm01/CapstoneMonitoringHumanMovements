@@ -1,4 +1,4 @@
-mat = readtable("/Users/dariusmensah/Desktop/LabTesting/MPU_6050/ComplimentaryFilter/z_AxisRotation.xlsx");
+mat = readtable("/Users/dariusmensah/Desktop/LabTesting/MPU_6050/ComplimentaryFilter/y_AxisRotationFast.xlsx");
 
 Phi = mat.Phi;
 Theta = mat.Theta;
