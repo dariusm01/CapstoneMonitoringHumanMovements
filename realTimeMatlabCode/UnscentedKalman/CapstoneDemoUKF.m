@@ -17,11 +17,10 @@
 %  14. Update the covariance 
 %  15. Repeat for next time step
 
-
 %% Name the file to save
 fileName = '/Trial2.xlsx';
 
-filePath = '/Users/dariusmensah/Desktop/CapstoneDemonstration/UnscentedKalman';
+filePath = '/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/realTimeMatlabCode/UnscentedKalman';
 
 addpath('UnscentedFilter');
 
