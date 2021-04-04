@@ -1,8 +1,8 @@
 
 %% Name the file to save
-fileName = '/RestingTrial.xlsx';
+fileName = '/Trial1.xlsx';
 
-filePath = '/Users/dariusmensah/Desktop/CapstoneDemonstration/ExtendedKalman';
+filePath = '/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/realTimeMatlabCode/ExtendedKalman';
 
 %% Sensor info
 a = arduino();
@@ -18,7 +18,7 @@ dt = 1/100;
 % SamplesPerRead = 10
 
 startSample = 1;
-stopSample = 1500;
+stopSample = 3000;
 
 accel = zeros(stopSample, 3);   % [m/s^2]
 gyro = zeros(stopSample, 3);    % [rad/s]
@@ -129,6 +129,9 @@ for i = startSample:stopSample
     
     % Posterior 
     Xk = Xkp + K*yk;
+    
+    Phi = Xk(1);
+    Theta = Xk(2);
     
     % Covariance Update
     Pk = (I - K*H)*Mk*(I - K*H).' + (K*Rk*K.');
