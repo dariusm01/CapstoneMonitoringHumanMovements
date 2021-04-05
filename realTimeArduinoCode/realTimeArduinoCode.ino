@@ -181,6 +181,19 @@ void loop() {
 
     BLA::Matrix<3,3> Sk_inv = Sk.Inverse(); // ... this may cause some issues
 
+    /* int res;
+     * Sk_inv = Sk.Inverse(&res); // if this is zero, the inverse does not exist 
+     *  
+     *  // ======== Pseudo Inverse ========
+     *  
+     *  if &res == 0 {
+     *  try:
+     *    Sk_inv = (~Sk*Sk).Inverse() * ~Sk;
+     *  or  
+     *    Sk_inv = ~Sk * (~Sk*Sk).Inverse() 
+     *  }
+     */
+    
     BLA::Matrix<3,3> H_T = ~H; // H^T
 
     BLA::Matrix<3,3> tempK;
