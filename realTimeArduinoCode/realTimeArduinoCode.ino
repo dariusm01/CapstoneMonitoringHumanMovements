@@ -47,6 +47,12 @@ using namespace BLA;
 
     BLA::Matrix<3,3> Mk{Pk};
 
+    // Process Noise Covariance
+
+    BLA::Matrix<3,3> Qk = {0.01, 0,  0,
+                            0, 0.01, 0,
+                            0,  0, 0.01};     
+
     // Measurement Covariance
 
     BLA::Matrix<3,3> Rk = {0.1, 0,  0,
@@ -133,6 +139,8 @@ void loop() {
     // Mk = F*Pk_1*F.'+ Qk;  
     Multiply(tempCov.Ref(),F_T.Ref(),Mk); 
 
+    Mk+= Qk;
+
 
     // ======= Innovation Covariance =======
     
@@ -145,6 +153,8 @@ void loop() {
 
     // Sk = H*Mk*H.' + Rk;
     Multiply(tempCov2.Ref(),tempTranspose.Ref(),Sk);
+
+    Sk += Rk;
 
     
     // ======= Measurement =======
