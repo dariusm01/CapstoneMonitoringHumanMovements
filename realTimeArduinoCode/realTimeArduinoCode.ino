@@ -3,7 +3,7 @@ using namespace BLA;
 
 // https://github.com/tomstewart89/BasicLinearAlgebra/blob/master/examples/HowToUse/HowToUse.ino
 
-// Initialzing values
+// =========== Initialzing values ===========
 
     float phi{0};
     float theta{0};
@@ -45,6 +45,8 @@ using namespace BLA;
 
     Pk.Fill(0);
 
+    BLA::Matrix<3,3> Mk{Pk};
+
     // Measurement Covariance
 
     BLA::Matrix<3,3> Rk = {0.1, 0,  0,
@@ -54,6 +56,11 @@ using namespace BLA;
     // Jacobian Matrix
     
     BLA::Matrix<3,3> H{I};
+
+
+    // Innovation Covariance
+
+    BLA::Matrix<3,3> Sk{Mk};
 
     // Residual
     
@@ -72,6 +79,7 @@ using namespace BLA;
     IKH.Fill(0);
 
     BLA::Matrix<3,3> KRK{IKH};
+    
 
 void setup() {
 
@@ -121,7 +129,6 @@ void loop() {
   
     BLA::Matrix<3,3> F_T = ~F; // F^T
    
-    BLA::Matrix<3,3> Mk;
 
     // Mk = F*Pk_1*F.'+ Qk;  
     Multiply(tempCov.Ref(),F_T.Ref(),Mk); 
@@ -136,17 +143,17 @@ void loop() {
 
     BLA::Matrix<3,3> tempTranspose = ~H; // H^T
 
-    BLA::Matrix<3,3> Sk;
-
     // Sk = H*Mk*H.' + Rk;
     Multiply(tempCov2.Ref(),tempTranspose.Ref(),Sk);
 
     
     // ======= Measurement =======
 
-    BLA::Matrix<3,1> zk = {ax,ay,az}; // Acelerometer values
+    BLA::Matrix<3,1> zk = {ax,ay,az}; // Accelerometer values
 
-    BLA::Matrix<3,1> AccelModel = {-sin(theta),cos(theta)*sin(phi),cos(theta)*cos(phi)};
+    BLA::Matrix<3,1> AccelModel = {-sin(theta),
+                                    cos(theta)*sin(phi),
+                                    cos(theta)*cos(phi)};
 
     
     BLA::Matrix<3,3> Jacobian = {0,                   -cos(theta),           0,
@@ -179,17 +186,18 @@ void loop() {
 
     xk = xk_1 + K*yk;
 
-    phi = xk(1);
-    theta = xk(2);
-    psi = xk(3);
+    phi =   xk(1);   // x-axis rotation
+    theta = xk(2);   // y-axis rotation
+    psi =   xk(3);   // z-axis rotation
 
-    // Pk = (I - K*H)*Mk*(I - K*H).' + (K*Rk*K.');
 
     // ======= Update Uncertainty =======
 
     IKH = (I.Ref() - K.Ref()*H.Ref());
 
     KRK = K.Ref() * Rk.Ref() * (~K.Ref());
+
+    // Pk = (I - K*H)*Mk*(I - K*H).' + (K*Rk*K.');
 
     Pk = (IKH * Mk * (~IKH)) + KRK;
 
