@@ -3,11 +3,14 @@ using namespace BLA;
 
 // https://github.com/tomstewart89/BasicLinearAlgebra/blob/master/examples/HowToUse/HowToUse.ino
 
-void setup() {
+// Initialzing values
 
-    Serial.begin(9600);
+    float phi{0};
+    float theta{0};
+    float psi{0};
   
     // Identity Matrix
+    
     BLA::Matrix<3,3> I = {1, 0, 0,
                           0, 1, 0,
                           0, 0, 1};
@@ -20,60 +23,192 @@ void setup() {
   
     xk_1.Fill(0); // column vector of zeros
 
+    BLA::Matrix<3,1> xk{xk_1};
+
     BLA::Matrix<3,1> zk{xk_1};
   
     // Input
+    
     float dt = 0.01;
   
     BLA::Matrix<3,3> G = {dt, 0, 0,
                           0, dt, 0,
                           0, 0, dt};
                           
-
+    // Process Covariance
+    
     BLA::Matrix<3,3> Pk_1 = {500, 0,  0,
                               0, 500, 0,
                               0,  0, 500};
-                              
 
-    // Observation Matrix
+    BLA::Matrix<3,3> Pk;
+
+    Pk.Fill(0);
+
+    // Measurement Covariance
+
+    BLA::Matrix<3,3> Rk = {0.1, 0,  0,
+                            0, 0.1, 0,
+                            0,  0, 0.1};                              
+                              
+    // Jacobian Matrix
+    
     BLA::Matrix<3,3> H{I};
 
+    // Residual
+    
+    BLA::Matrix<3,1> yk; // residual
+
+    yk.Fill(0); // column vector of zeros
+
+    // Kalman Gain
+    
+    BLA::Matrix<3,3> K;
+
+    K.Fill(0);
+
+    BLA::Matrix<3,3> IKH;
+
+    IKH.Fill(0);
+
+    BLA::Matrix<3,3> KRK{IKH};
+
+void setup() {
+
+    Serial.begin(9600);
     
 }
 
 void loop() {
 
+
+
+    /*  Use sensor to gather data here:
+     *
+     *
+     *
+     *
+     *
+     *
+     *
+     *
+     */
+
+    BLA::Matrix<3,3> EulerKinematic = {1, sin(phi)*tan(theta),  cos(phi)*tan(theta),
+                                       0, cos(phi), -sin(phi),
+                                       0, sin(phi)/cos(theta), cos(phi)/cos(theta)};
+
+    BLA::Matrix<3,1> Gyro = {gx,gy,gz};
+     
+  
     // Input 
-    BLA::Matrix<3,1> u = {20,0,5}; // change these to Euler rates
     
-    // Prediction
+    BLA::Matrix<3,1> u; // Euler rates
+
+    Multiply(EulerKinematic.Ref(),Gyro.Ref(),u); // Using references for speed
+    
+    //  ======= Prediction =======
+    
     BLA::Matrix<3,1> xkp = (F * xk_1 + G * u);
 
 
-         // ======= Propagate Covariance =======
+    // ======= Propagate Covariance =======
+    
     BLA::Matrix<3,3> tempCov;
     
     // F * Pk_1 = tempCov
-    Multiply(F.Ref(),Pk_1.Ref(),tempCov); // Using references for speed
+    Multiply(F.Ref(),Pk_1.Ref(),tempCov); 
   
-    BLA::Matrix<3,3> tempTranspose = ~F; // F^T
+    BLA::Matrix<3,3> F_T = ~F; // F^T
    
     BLA::Matrix<3,3> Mk;
 
     // Mk = F*Pk_1*F.'+ Qk;  
-    Multiply(tempCov.Ref(),tempTranspose.Ref(),Mk); // Using references for speed
+    Multiply(tempCov.Ref(),F_T.Ref(),Mk); 
 
-        // ======= Innovation Covariance =======
+
+    // ======= Innovation Covariance =======
+    
     BLA::Matrix<3,3> tempCov2;
 
     // H * Mk = tempCov2
-    Multiply(H.Ref(),Mk.Ref(),tempCov2); // Using references for speed
+    Multiply(H.Ref(),Mk.Ref(),tempCov2);
 
-    BLA::Matrix<3,3> tempTranspose2 = ~H; // H^T
+    BLA::Matrix<3,3> tempTranspose = ~H; // H^T
 
     BLA::Matrix<3,3> Sk;
 
     // Sk = H*Mk*H.' + Rk;
-    Multiply(tempCov2.Ref(),tempTranspose2.Ref(),Sk); // Using references for speed
+    Multiply(tempCov2.Ref(),tempTranspose.Ref(),Sk);
+
+    
+    // ======= Measurement =======
+
+    BLA::Matrix<3,1> zk = {ax,ay,az}; // Acelerometer values
+
+    BLA::Matrix<3,1> AccelModel = {-sin(theta),cos(theta)*sin(phi),cos(theta)*cos(phi)};
+
+    
+    BLA::Matrix<3,3> Jacobian = {0,                   -cos(theta),           0,
+                                 cos(theta)*cos(phi), -sin(theta)*sin(phi),  0,
+                                -cos(theta)*sin(phi), -sin(theta)*cos(phi),  0};
+
+    H = Jacobian;                            
+
+    // ======= Residual =======
+    
+    Subtract(zk.Ref(), AccelModel.Ref(), yk); 
+
+
+    // ======= Kalman Gain =======
+
+    BLA::Matrix<3,3> Sk_inv = Sk.Inverse(); // ... this may cause some issues
+
+    BLA::Matrix<3,3> H_T = ~H; // H^T
+
+    BLA::Matrix<3,3> tempK;
+
+    tempK.Fill(0);
+
+    Multiply(Mk.Ref(),H_T.Ref(),tempK);
+
+    Multiply(tempK.Ref(),Sk_inv.Ref(),K); 
+
+
+    // ======= Update State =======
+
+    xk = xk_1 + K*yk;
+
+    phi = xk(1);
+    theta = xk(2);
+    psi = xk(3);
+
+    // Pk = (I - K*H)*Mk*(I - K*H).' + (K*Rk*K.');
+
+    // ======= Update Uncertainty =======
+
+    IKH = (I.Ref() - K.Ref()*H.Ref());
+
+    KRK = K.Ref() * Rk.Ref() * (~K.Ref());
+
+    Pk = (IKH * Mk * (~IKH)) + KRK;
+
+    /*  Print stuff?:
+     *
+     *
+     *
+     *
+     *
+     *
+     *
+     *
+     */
+
+    // Redefining for next timestep
+
+    xk_1 = xk;
+
+    Pk_1 = Pk;
+
 
 }
