@@ -1,6 +1,6 @@
 
 %% Name the file to save
-fileName = '/Trial1.xlsx';
+fileName = '/Trial2.xlsx';
 
 filePath = '/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/realTimeMatlabCode/ExtendedKalman';
 
