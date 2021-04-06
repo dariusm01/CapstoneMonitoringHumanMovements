@@ -1,8 +1,7 @@
 import pandas
 import numpy as np
-from UsefulFunctions import FirstOrderPNC, ProcessCovariance, KalmanGain, CovarianceUpdate, EulerRate, AccelModel, \
+from UsefulFunctions import ProcessCovariance, KalmanGain, CovarianceUpdate, EulerRate, AccelModel, \
     MeasurementJacobian
-import matplotlib
 import matplotlib.pyplot as plt
 
 # Importing the sensor data
@@ -126,7 +125,7 @@ for i in range(TF):
     # Measurement Jacobian (partial derivatives)
     H = MeasurementJacobian(Xkp[0], Xkp[1])
 
-    # Innovation (Resdiual)
+    # Innovation (Residual)
     yk = zk - h_of_x
 
     # Kalman Gain
