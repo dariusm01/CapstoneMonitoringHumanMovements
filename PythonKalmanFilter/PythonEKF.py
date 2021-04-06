@@ -1,8 +1,7 @@
 import pandas
 import numpy as np
-from UsefulFunctions import FirstOrderPNC, ProcessCovariance, KalmanGain, CovarianceUpdate, EulerRate, AccelModel, \
+from UsefulFunctions import ProcessCovariance, KalmanGain, CovarianceUpdate, EulerRate, AccelModel, \
     MeasurementJacobian
-import matplotlib
 import matplotlib.pyplot as plt
 
 # Importing the sensor data
