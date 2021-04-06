@@ -17,8 +17,10 @@
 %  14. Update the covariance 
 %  15. Repeat for next time step
 
+% arduinosetup();
+
 %% Name the file to save
-fileName = '/Trial2.xlsx';
+fileName = '/Trial3.xlsx';
 
 filePath = '/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/realTimeMatlabCode/UnscentedKalman';
 

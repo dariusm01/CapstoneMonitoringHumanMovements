@@ -1,6 +1,8 @@
 
+% arduinosetup();
+
 %% Name the file to save
-fileName = '/Trial2.xlsx';
+fileName = '/Trial4.xlsx';
 
 filePath = '/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/realTimeMatlabCode/ExtendedKalman';
 
@@ -95,6 +97,9 @@ for i = startSample:stopSample
     AccelZ = -accel(i,3);
     
     %% Converting Gyro to Euler rates
+    if Theta == 90  % Lazy way of avoiding gimbal lock
+        Theta = 88.9;
+    end 
     [phiDot,thetaDot,psiDot] = EulerRate(Phi,Theta, Gyro);
     
     % Euler Rates are inputs into the system
