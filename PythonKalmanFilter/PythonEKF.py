@@ -1,31 +1,20 @@
-import pandas
 import numpy as np
 from UsefulFunctions import ProcessCovariance, KalmanGain, CovarianceUpdate, EulerRate, AccelModel, \
-    MeasurementJacobian
+    MeasurementJacobian, sensorData
 import matplotlib.pyplot as plt
 
-# Importing the sensor data
-dataframe = pandas.read_csv('SensorInfo.csv')
+sensorArray = sensorData('x_AxisRotationFast.csv')
 
-# Converting the info from a pandas dataframe into a numpy array (better for linear algebra purposes)
-sensorArray = dataframe.to_numpy()
+''' Assigning the data to their respective variables '''
 
-# Assigning the data to their respective variables
-# GyroX = sensorArray[:,0]
-# GyroY = sensorArray[:,1]
-# GyroZ = sensorArray[:,2]
-# AccelX = sensorArray[:,3]
-# AccelY = sensorArray[:,4]
-# AccelZ = sensorArray[:,5]
+# To NED Frame (swap x & y, invert z [depends on sensor])
+AccelX = sensorArray[:, 1]
+AccelY = sensorArray[:, 0]
+AccelZ = -1 * sensorArray[:, 2]
 
-# To NED Frame
-GyroX = sensorArray[:, 1]
-GyroY = sensorArray[:, 0]
-GyroZ = -1 * sensorArray[:, 2]
-
-AccelX = sensorArray[:, 4]
-AccelY = sensorArray[:, 3]
-AccelZ = -1 * sensorArray[:, 5]
+GyroX = sensorArray[:, 4]
+GyroY = sensorArray[:, 3]
+GyroZ = -1 * sensorArray[:, 5]
 
 # Gyro Noise Specs:
 # Total RMS Noise = 0.1 °/s rms
@@ -34,12 +23,12 @@ AccelZ = -1 * sensorArray[:, 5]
 # Accelerometer Noise Specs
 # Noise power spectral density (low noise mode) = 300 µg/√Hz
 
-dt = 1 / 100
-TF = 50
+dt = 1 / 100  # use sampling rate
+TF = len(sensorArray)
 
 # Prediction 
 
-# x = Fx + w
+# x = Fx + Gu + w
 
 F = np.array([[1, 0, 0],
               [0, 1, 0],
@@ -54,13 +43,14 @@ Xk_1 = np.zeros((F.shape[0], 1))
 
 u = Xk_1
 
+# Initial angle values, can change this
 Phi = Xk_1[0]
 Theta = Xk_1[1]
 Psi = Xk_1[2]
 
 # Covariance Matrix 
 Pk_1 = np.identity(F.shape[0])
-Pk_1 *= 500
+Pk_1 *= 500  # 500 is generic
 
 # Noise
 AccelSpectralDensity = 300e-6 * np.sqrt(dt)
@@ -150,9 +140,12 @@ for i in range(TF):
     # Store for plotting
     time.append(sec)
 
-    PhiKalman.append(Xk[0].item())
-    ThetaKalman.append(Xk[1].item())
-    PsiKalman.append(Xk[2].item())
+    # Converting to Degrees (may need to add 180°)
+    # May need to convert to sensor frame from NED
+    # Also may need to flip signs
+    PhiKalman.append(Xk[0].item() * (180 / np.pi))
+    ThetaKalman.append((Xk[1].item() + np.pi) * (180 / np.pi))
+    PsiKalman.append(Xk[2].item() * (180 / np.pi))
 
 # Plotting
 
