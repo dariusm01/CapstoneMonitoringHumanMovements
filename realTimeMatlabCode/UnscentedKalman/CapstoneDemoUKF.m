@@ -72,7 +72,7 @@ Wk = 0;
 
 Qk = eye(size(P))*GyroSpectralDensity;
 
-Rk = eye(size(P))*0.3;
+Rk = eye(size(P))*0.085;
 
 %% Values we want to plot 
 

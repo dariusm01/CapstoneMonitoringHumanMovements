@@ -63,7 +63,7 @@ Wk = 0;
 Qk = eye(size(Pk_1))*GyroSpectralDensity;
 
 % Measurement noise
-Rk = eye(size(Pk_1))*0.1;
+Rk = eye(size(Pk_1))*0.085;
 
 H = eye(size(Pk_1));
 
