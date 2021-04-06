@@ -38,3 +38,34 @@ def CovarianceUpdate(P,K,H,R):
     return c + e # (I - K*H)*Pkp*(I - K*H).' + (K*Rk*K.');
 
 
+def EulerRate(phi, theta, Gyro):
+
+    EulerKinematic = np.array([[1, np.sin(phi)*np.tan(theta), np.cos(phi)*np.tan(theta)], 
+                               [0, np.cos(phi), -1*np.sin(phi)],
+                               [0, np.sin(phi)*(1/(np.cos(theta))), np.cos(phi)*(1/(np.cos(theta)))]],dtype=float)
+
+
+    EulerRates = np.dot(EulerKinematic,Gyro)
+
+    phiDot = EulerRates[0]
+    thetaDot = EulerRates[1]
+    psiDot = EulerRates[2]
+
+    return phiDot,thetaDot,psiDot
+
+
+def AccelModel(phi, theta):
+    Accel=  np.array([[-np.sin(theta)],
+                       [np.cos(theta) * np.sin(phi)],
+                       [np.cos(theta) * np.cos(phi)]],dtype=float)
+
+    return np.reshape(Accel,(3,1))
+
+
+def MeasurementJacobian(phi, theta):
+    J = np.array([[0, -np.cos(theta), 0],
+             [np.cos(theta)*np.cos(phi), -np.sin(theta)*np.sin(phi), 0],
+             [-np.cos(theta)*np.sin(phi), -np.sin(theta)*np.cos(phi), 0]],dtype=float)
+
+    return np.reshape(J,(3,3))
+    
