@@ -44,9 +44,9 @@ Xk_1 = np.zeros((F.shape[0], 1))
 u = Xk_1
 
 # Initial angle values, can change this
-Phi = Xk_1[0]
-Theta = Xk_1[1]
-Psi = Xk_1[2]
+Phi = Xk_1[0]  # φ (Roll  [X-Axis])
+Theta = Xk_1[1]  # θ (Pitch [Y-Axis])
+Psi = Xk_1[2]  # ψ (Yaw   [Z-Axis])
 
 # Covariance Matrix 
 Pk_1 = np.identity(F.shape[0])
@@ -60,11 +60,11 @@ GyroSpectralDensity = 0.01 * np.sqrt(dt)
 Wk = 0
 
 Qk = np.identity(F.shape[0])
-Qk *= GyroSpectralDensity
+Qk *= GyroSpectralDensity  # arbitrary
 
 # Measurement noise
 Rk = np.identity(Pk_1.shape[0])
-Rk *= 0.3
+Rk *= 0.085  # after doing some testing
 
 # Measurement Matrix
 H = np.identity(Pk_1.shape[0])
@@ -104,13 +104,12 @@ for i in range(TF):
                    [AccelY[i]],
                    [AccelZ[i]]], dtype=float)
 
-    # Measurement Model Accelerometer
+    # Measurement Model Accelerometer (assuming no external acceleration [sign might be flipped])
+    h_of_x = AccelModel(Xkp[0], Xkp[1])
 
     # |ax|     |    -sin(θ)    |
     # |ay|  =  |  cos(θ)sin(φ) |
     # |az|     |  cos(θ)cos(φ) |
-
-    h_of_x = AccelModel(Xkp[0], Xkp[1])
 
     # Measurement Jacobian (partial derivatives)
     H = MeasurementJacobian(Xkp[0], Xkp[1])
@@ -144,15 +143,15 @@ for i in range(TF):
     # May need to convert to sensor frame from NED
     # Also may need to flip signs
     PhiKalman.append(Xk[0].item() * (180 / np.pi))
-    ThetaKalman.append((Xk[1].item() + np.pi) * (180 / np.pi))
+    ThetaKalman.append(Xk[1].item() * (180 / np.pi))
     PsiKalman.append(Xk[2].item() * (180 / np.pi))
 
 # Plotting
 
 plt.figure(1)
 plt.plot(time, PhiKalman, label="Kalman Filter")
-plt.ylabel('Angle (radians)')
-plt.xlabel('Time (sec)')
+plt.ylabel('Angle [°]')
+plt.xlabel('samples')
 plt.title("Roll Angle (X-Axis Rotation)")
 plt.legend()
 plt.grid()
@@ -160,8 +159,8 @@ plt.show()
 
 plt.figure(2)
 plt.plot(time, ThetaKalman, label="Kalman Filter")
-plt.ylabel('Angle (radians)')
-plt.xlabel('Time (sec)')
+plt.ylabel('Angle [°]')
+plt.xlabel('samples')
 plt.title("Pitch Angle (Y-Axis Rotation)")
 plt.legend()
 plt.grid()
@@ -169,8 +168,8 @@ plt.show()
 
 plt.figure(3)
 plt.plot(time, PsiKalman, label="Kalman Filter")
-plt.ylabel('Angle (radians)')
-plt.xlabel('Time (sec)')
+plt.ylabel('Angle [°]')
+plt.xlabel('samples')
 plt.title("Yaw Angle (Z-Axis Rotation)")
 plt.legend()
 plt.grid()
