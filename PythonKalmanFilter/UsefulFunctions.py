@@ -1,6 +1,6 @@
 import numpy as np
 from numpy.linalg import inv
-import pandas
+import pandas as pd
 
 
 def FirstOrderPNC(SD, dt):
@@ -73,7 +73,7 @@ def MeasurementJacobian(phi, theta):
 
 def sensorData(fileName):
     # Importing the sensor data
-    dataframe = pandas.read_csv(fileName)
+    dataframe = pd.read_csv(fileName)
 
     # Converting the info from a pandas dataframe into a numpy array (better for linear algebra purposes)
     sensorArray = dataframe.to_numpy()
