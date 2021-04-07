@@ -27,7 +27,9 @@ filePath = '/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/realT
 addpath('UnscentedFilter');
 
 %% Sensor info
-a = arduino();
+port = '/dev/cu.usbserial-AB0L9PP9';
+board = 'Nano3';
+a = arduino(port,board);
 
 % Port: '/dev/cu.usbmodem401'
 % Board: 'Mega2560'
