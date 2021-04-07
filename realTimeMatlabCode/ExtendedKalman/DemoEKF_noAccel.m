@@ -2,7 +2,7 @@
 % arduinosetup();
 
 %% Name the file to save
-fileName = '/Trial5.xlsx';
+fileName = '/Trial1_noAccel.xlsx';
 
 filePath = '/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/realTimeMatlabCode/ExtendedKalman/EKF_6DOF_Files';
 
@@ -15,24 +15,35 @@ a = arduino(port,board);
 % Port: '/dev/cu.usbmodem401'
 % Board: 'Mega2560'
 
-imu = mpu6050(a,'SamplesPerRead', 100);
+imu = mpu9250(a,'SamplesPerRead', 100);
 
 % SampleRate = 100 (samples/s)
 dt = 1/100;
 
-% SamplesPerRead = 10
-
 startSample = 1;
 stopSample = 3000;
 
-accel = zeros(stopSample, 3);   % [m/s^2]
 gyro = zeros(stopSample, 3);    % [rad/s]
+mag = zeros(stopSample, 3);     % [µT]
+
+Mx = zeros(stopSample, 1);
+My = zeros(stopSample, 1);
+Mz = zeros(stopSample, 1);
+
+[Offset, Scale] = CalibrateMag(imu);
+fprintf("\n")
 
 [OSX,OSY,OSZ] = calibrateGyro(imu);
 
 Phi = 0; 
 Theta = 0;
 Psi = 0;
+
+% Expected Field Strength 
+ExpField = @(x) sqrt((x.^2)/3);
+
+% Magnitude at the Earth's surface ranges from 25 to 65 microteslas
+Field = ExpField(45);
 
 fprintf("\nNow Gathering Data\n")
 
@@ -48,7 +59,7 @@ G = [dt 0 0;
      0 dt 0; 
      0 0 dt];
  
-zk = [0;0;0];
+zk = zeros(3,1);
 
 h_of_x = zk; 
 
@@ -68,11 +79,11 @@ Wk = 0;
 Qk = eye(size(Pk_1))*GyroSpectralDensity;
 
 % Measurement noise
-Rk = eye(size(Pk_1))*0.085;
+Rk = eye(length(zk))*30;
 
 H = eye(size(Pk_1));
 
-I = eye(size(H));
+I = eye(size(Pk_1));
 
 %% Values we want to plot 
 
@@ -82,11 +93,20 @@ PsiKalman = [];
 
 for i = startSample:stopSample
     
-    [accelReadings,~] = readAcceleration(imu);
-    accel(i,:) = accelReadings / 9.81; % in G's
-    
     [gyroReadings,~] = readAngularVelocity(imu);
     gyro(i,:) = gyroReadings - [OSX,OSY,OSZ];
+    
+    [magReadings,~] = readMagneticField(imu);
+    mag(i,:) = magReadings;
+    
+    Mx(i) = (mag(i,1) - Offset(1))*Scale(1); % Hard Iron Correction & % Soft Iron Correction
+    MagX = Mx(i); 
+    
+    My(i) = (mag(i,2) - Offset(2))*Scale(2);
+    MagY = My(i);
+    
+    Mz(i) = (mag(i,3) - Offset(3))*Scale(3);
+    MagZ = Mz(i);
     
     %% To NED Frame
     GyroX = gyro(i,2);
@@ -95,14 +115,13 @@ for i = startSample:stopSample
     
     Gyro = [GyroX;GyroY;GyroZ];
     
-    AccelX = accel(i,2);
-    AccelY = accel(i,1);
-    AccelZ = -accel(i,3);
+    % Mag is already in NED
     
     %% Converting Gyro to Euler rates
     if Theta == 1.5708  % Lazy way of avoiding gimbal lock
         Theta = 1.5516;
     end 
+    
     [phiDot,thetaDot,psiDot] = EulerRate(Phi,Theta, Gyro);
     
     % Euler Rates are inputs into the system
@@ -120,14 +139,14 @@ for i = startSample:stopSample
     Sk = H*Mk*H.' + Rk;
     
     % Measurement (evidence)
-    zk = [AccelX; AccelY; AccelZ];
+    zk = [MagX; MagY; MagZ];
     
-    % Measurement Model Accelerometer
-    [ax,ay,az] = AccelModel(Xkp(1), Xkp(2));
+    % Measurement Model Magnetometer
+    [mx,my,mz] = MagnetModel(Xkp(1),Xkp(2), Xkp(3), Field);
     
-    h_of_x = [ax;ay;az];
+    h_of_x = [mx;my;mz];
     
-    H = MeasurementJacobian(Xkp(1), Xkp(2));
+    H = MeasurementJacobian(Xkp(1), Xkp(2), Xkp(3), Field);
     
     % Innovation (Residual)
     yk = zk - h_of_x;
@@ -140,6 +159,7 @@ for i = startSample:stopSample
     
     Phi = Xk(1);
     Theta = Xk(2);
+    Psi = Xk(3);
     
     % Covariance Update
     Pk = (I - K*H)*Mk*(I - K*H).' + (K*Rk*K.');
@@ -181,6 +201,8 @@ fprintf("\nData Exported\n")
 
 
 function [OSX,OSY,OSZ] = calibrateGyro(imu)
+
+    fprintf("Calibrating Gyroscope :\n")
     
     fprintf("Please do not move sensor while calibrating gyro\n")
     
@@ -202,6 +224,55 @@ function [OSX,OSY,OSZ] = calibrateGyro(imu)
    OSZ = mean(buffer(:,3));
    
    fprintf("Gyroscope Calibration Complete\n")
+end 
+
+function [Offsets, Scale] = CalibrateMag(imu)
+
+    fprintf("Calibrating Magnetometer :\n")
+
+    fprintf("Please move the sensor in a figure 8 pattern to collect samples at different orientations\n")
+
+    buffer = zeros(200, 3);
+    
+    for j = 1:length(buffer)*7 % Throwing out first 1400 readings
+       [~,~] = readMagneticField(imu);
+    end 
+
+    for i = 1:length(buffer)
+       [magSamples,~] = readMagneticField(imu);
+       buffer(i,:) = magSamples; 
+    end 
+    
+    
+    MagX =  buffer(:,1);
+    MagY =  buffer(:,2);
+    MagZ =  buffer(:,3);
+    
+    %% Hard Iron Correction
+
+    MagXOffset = (max(MagX)+min(MagX))/2;
+    MagYOffset = (max(MagY)+min(MagY))/2;
+    MagZOffset = (max(MagZ)+min(MagZ))/2;
+
+    MagXHI = MagX-MagXOffset;
+    MagYHI = MagY-MagYOffset;
+    MagZHI = MagZ-MagZOffset;
+
+    %% Soft Iron Correction 
+    chordX = (max(MagXHI) - min(MagXHI))/2;
+    chordY = (max(MagYHI) - min(MagYHI))/2;
+    chordZ = (max(MagZHI) - min(MagZHI))/2;
+
+    chord_average = (chordX + chordY + chordZ)/3;
+
+    MagXScale = chord_average/chordX;
+    MagYScale = chord_average/chordY;
+    MagZScale = chord_average/chordZ;
+    
+    Offsets = [MagXOffset MagYOffset MagZOffset];
+    Scale = [MagXScale MagYScale MagZScale];
+    
+    fprintf("Magnetometer Calibration Complete\n")
 end 
     
 function ExportSheet(fileName, filePath, table)
@@ -227,18 +298,43 @@ psiDot = EulerRates(3);
 
 end 
 
-function H = MeasurementJacobian(phi,theta)
+function H = MeasurementJacobian(phi,theta,psi, F)
 
-H = [0 -cos(theta) 0; cos(theta)*cos(phi) -sin(theta)*sin(phi) 0; -cos(theta)*sin(phi) -sin(theta)*cos(phi) 0];
+d1 = 0;
 
+d2 = -sin(theta)*(cos(psi) + sin(psi)) - cos(theta);
+
+d3 = cos(theta)*(-sin(psi) + cos(psi));
+
+d4 = (cos(psi)*sin(theta)*cos(phi) + sin(phi)*sin(psi)) - (cos(phi)*cos(psi) +...
+    sin(theta)*cos(phi)*sin(psi)) + cos(theta)*cos(phi);
+
+d5 = (cos(theta)*sin(phi)*(cos(psi) + sin(psi))) - sin(theta)*sin(phi);
+
+d6 = (-sin(psi)*sin(theta)*sin(phi) - cos(phi)*cos(psi)) - (cos(phi)*sin(psi) +...
+    sin(theta)*sin(phi)*cos(psi));
+
+d7 = (-sin(phi)*cos(psi)*sin(theta) + cos(phi)*sin(psi)) - (cos(psi)*cos(phi) -...
+    sin(phi)*sin(theta)*sin(psi));
+
+d8 = (cos(phi)*cos(theta)*(cos(psi) + sin(psi))) - sin(theta)*cos(phi);
+
+d9 = (-cos(phi)*sin(psi)*sin(theta) + sin(phi)*cos(psi)) - (sin(psi)*sin(phi) +...
+    cos(phi)*sin(theta)*cos(psi));
+
+H = F * [d1 d2 d3; d4 d5 d6; d7 d8 d9];
+
+   
 end 
 
-function [ax,ay,az] = AccelModel(Phi, Theta)
 
-ax = - sin(Theta);
+function [mx,my,mz] = MagnetModel(phi,theta,psi, F)
 
-ay = cos(Theta)*sin(Phi);
-
-az = cos(Theta)*cos(Phi);
+    mx = F * (cos(theta)*cos(psi) + cos(theta)*sin(psi) - sin(theta));
+    
+    my = F * ((cos(psi)*sin(theta)*sin(phi) - cos(phi)*sin(psi)) +...
+        (cos(phi)*cos(psi) + sin(theta)*sin(phi)*sin(psi)) + cos(theta)*sin(phi));
+    
+    mz = F * ((cos(phi)*cos(psi)*sin(theta) + sin(phi)*sin(psi)) - (cos(psi)*...
+        sin(theta) + cos(phi)*sin(theta)*sin(psi)) + cos(theta)*cos(phi));
 end 
-
