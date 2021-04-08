@@ -20,7 +20,7 @@
 % arduinosetup();
 
 %% Name the file to save
-fileName = '/Trial3.xlsx';
+fileName = '/Trial4.xlsx';
 
 filePath = '/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/realTimeMatlabCode/UnscentedKalman';
 
@@ -34,7 +34,7 @@ a = arduino(port,board);
 % Port: '/dev/cu.usbmodem401'
 % Board: 'Mega2560'
 
-imu = mpu6050(a,'SamplesPerRead', 100);
+imu = mpu9250(a,'SamplesPerRead', 100);
 
 % SampleRate = 100 (samples/s)
 dt = 1/100;
