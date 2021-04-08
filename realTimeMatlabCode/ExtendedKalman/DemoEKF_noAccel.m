@@ -2,7 +2,7 @@
 % arduinosetup();
 
 %% Name the file to save
-fileName = '/Trial1_noAccel.xlsx';
+fileName = '/Trial4_noAccel.xlsx';
 
 filePath = '/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/realTimeMatlabCode/ExtendedKalman/EKF_6DOF_Files';
 
@@ -21,7 +21,7 @@ imu = mpu9250(a,'SamplesPerRead', 100);
 dt = 1/100;
 
 startSample = 1;
-stopSample = 3000;
+stopSample = 1500;
 
 gyro = zeros(stopSample, 3);    % [rad/s]
 mag = zeros(stopSample, 3);     % [µT]
@@ -91,6 +91,7 @@ PhiKalman = [];
 ThetaKalman = [];
 PsiKalman = [];
 
+
 for i = startSample:stopSample
     
     [gyroReadings,~] = readAngularVelocity(imu);
@@ -107,6 +108,17 @@ for i = startSample:stopSample
     
     Mz(i) = (mag(i,3) - Offset(3))*Scale(3);
     MagZ = Mz(i);
+    
+    totalMag = [Mx My Mz];
+    
+    fieldMagnitude  = norm([MagX MagY MagZ]);
+    
+    MagX = MagX/fieldMagnitude;
+    
+    MagY = MagY/fieldMagnitude;
+    
+    MagZ = MagZ/fieldMagnitude;
+    
     
     %% To NED Frame
     GyroX = gyro(i,2);
@@ -142,11 +154,11 @@ for i = startSample:stopSample
     zk = [MagX; MagY; MagZ];
     
     % Measurement Model Magnetometer
-    [mx,my,mz] = MagnetModel(Xkp(1),Xkp(2), Xkp(3), Field);
+    [mx,my,mz] = MagnetModel(Xkp(2), Xkp(3));
     
     h_of_x = [mx;my;mz];
     
-    H = MeasurementJacobian(Xkp(1), Xkp(2), Xkp(3), Field);
+    H = MeasurementJacobian(Xkp(2), Xkp(3));
     
     % Innovation (Residual)
     yk = zk - h_of_x;
@@ -171,18 +183,30 @@ for i = startSample:stopSample
     
     %% Plotting
     
-    subplot(3,1,1);
+%     figure(1)
+%     subplot(3,1,1);
+%     grid on
+%     plot(rad2deg(PhiKalman))
+%     title("X-Axis Rotation")
+%     
+%     subplot(3,1,2);
+%     plot(rad2deg(ThetaKalman))
+%     title("Y-Axis Rotation")
+%    
+%     subplot(3,1,3);
+%     plot(rad2deg(PsiKalman))
+%     title("Z-Axis Rotation")
+
+    figure(2)
+    subplot(2,1,1)
     grid on
-    plot(rad2deg(PhiKalman))
-    title("X-Axis Rotation")
+    plot(rad2deg(gyro))
+    title("Gyroscope Angular Velocity [°/s]")
     
-    subplot(3,1,2);
-    plot(rad2deg(ThetaKalman))
-    title("Y-Axis Rotation")
-   
-    subplot(3,1,3);
-    plot(rad2deg(PsiKalman))
-    title("Z-Axis Rotation")
+    subplot(2,1,2)
+    grid on
+    plot(totalMag)
+    title("Magnetic Field [µT]")
 
     % Redefining for next iteration
     Xk_1 = Xk;
@@ -298,43 +322,21 @@ psiDot = EulerRates(3);
 
 end 
 
-function H = MeasurementJacobian(phi,theta,psi, F)
+function H = MeasurementJacobian(theta,psi)
 
-d1 = 0;
-
-d2 = -sin(theta)*(cos(psi) + sin(psi)) - cos(theta);
-
-d3 = cos(theta)*(-sin(psi) + cos(psi));
-
-d4 = (cos(psi)*sin(theta)*cos(phi) + sin(phi)*sin(psi)) - (cos(phi)*cos(psi) +...
-    sin(theta)*cos(phi)*sin(psi)) + cos(theta)*cos(phi);
-
-d5 = (cos(theta)*sin(phi)*(cos(psi) + sin(psi))) - sin(theta)*sin(phi);
-
-d6 = (-sin(psi)*sin(theta)*sin(phi) - cos(phi)*cos(psi)) - (cos(phi)*sin(psi) +...
-    sin(theta)*sin(phi)*cos(psi));
-
-d7 = (-sin(phi)*cos(psi)*sin(theta) + cos(phi)*sin(psi)) - (cos(psi)*cos(phi) -...
-    sin(phi)*sin(theta)*sin(psi));
-
-d8 = (cos(phi)*cos(theta)*(cos(psi) + sin(psi))) - sin(theta)*cos(phi);
-
-d9 = (-cos(phi)*sin(psi)*sin(theta) + sin(phi)*cos(psi)) - (sin(psi)*sin(phi) +...
-    cos(phi)*sin(theta)*cos(psi));
-
-H = F * [d1 d2 d3; d4 d5 d6; d7 d8 d9];
-
+H = [0 -sin(theta)*cos(psi) -cos(theta)*sin(psi);
+     0 -sin(theta)*sin(psi)  cos(theta)*cos(psi);
+     0  -cos(theta)          0];
    
 end 
 
 
-function [mx,my,mz] = MagnetModel(phi,theta,psi, F)
+function [mx,my,mz] = MagnetModel(theta,psi)
 
-    mx = F * (cos(theta)*cos(psi) + cos(theta)*sin(psi) - sin(theta));
-    
-    my = F * ((cos(psi)*sin(theta)*sin(phi) - cos(phi)*sin(psi)) +...
-        (cos(phi)*cos(psi) + sin(theta)*sin(phi)*sin(psi)) + cos(theta)*sin(phi));
-    
-    mz = F * ((cos(phi)*cos(psi)*sin(theta) + sin(phi)*sin(psi)) - (cos(psi)*...
-        sin(theta) + cos(phi)*sin(theta)*sin(psi)) + cos(theta)*cos(phi));
+mx = cos(theta)*cos(psi);
+
+my = cos(theta)*sin(psi);
+
+mz = -sin(theta);
+
 end 
