@@ -313,6 +313,54 @@ fprintf("Please do not move sensor while calibrating the accelerometer\n")
 
 end 
 
+function [Offsets, Scale] = CalibrateMag(imu)
+
+    fprintf("Calibrating Magnetometer :\n")
+
+    fprintf("Please move the sensor in a figure 8 pattern to collect samples at different orientations\n")
+
+    buffer = zeros(200, 3);
+    
+    for j = 1:length(buffer)*7 % Throwing out first 1400 readings
+       [~,~] = readMagneticField(imu);
+    end 
+
+    for i = 1:length(buffer)
+       [magSamples,~] = readMagneticField(imu);
+       buffer(i,:) = magSamples; 
+    end 
+    
+    MagX =  buffer(:,1);
+    MagY =  buffer(:,2);
+    MagZ =  buffer(:,3);
+    
+    %% Hard Iron Correction
+
+    MagXOffset = (max(MagX)+min(MagX))/2;
+    MagYOffset = (max(MagY)+min(MagY))/2;
+    MagZOffset = (max(MagZ)+min(MagZ))/2;
+
+    MagXHI = MagX-MagXOffset;
+    MagYHI = MagY-MagYOffset;
+    MagZHI = MagZ-MagZOffset;
+
+    %% Soft Iron Correction 
+    chordX = (max(MagXHI) - min(MagXHI))/2;
+    chordY = (max(MagYHI) - min(MagYHI))/2;
+    chordZ = (max(MagZHI) - min(MagZHI))/2;
+
+    chord_average = (chordX + chordY + chordZ)/3;
+
+    MagXScale = chord_average/chordX;
+    MagYScale = chord_average/chordY;
+    MagZScale = chord_average/chordZ;
+    
+    Offsets = [MagXOffset MagYOffset MagZOffset];
+    Scale = [MagXScale MagYScale MagZScale];
+    
+    fprintf("Magnetometer Calibration Complete\n")
+end 
+
 function ExportSheet(fileName, filePath, table)
 
 fileToSave = strcat(filePath, fileName);
