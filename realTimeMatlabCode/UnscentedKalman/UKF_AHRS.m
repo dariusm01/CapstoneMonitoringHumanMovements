@@ -20,7 +20,7 @@
 % arduinosetup();
 
 %% Name the file to save
-fileName = '/Trial4.xlsx';
+fileName = '/AHRS_Trial2.xlsx';
 
 filePath = '/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/realTimeMatlabCode/UnscentedKalman';
 
@@ -34,7 +34,7 @@ a = arduino(port,board);
 % Port: '/dev/cu.usbmodem401'
 % Board: 'Mega2560'
 
-imu = mpu6050(a,'SamplesPerRead', 100);
+imu = mpu9250(a,'SamplesPerRead', 100);
 
 % SampleRate = 100 (samples/s)
 dt = 1/100;
@@ -111,16 +111,16 @@ for iii = startSample:stopSample
     gyro(iii,:) = gyroReadings - [OSX,OSY,OSZ];
     
     [magReadings,~] = readMagneticField(imu);
-    mag(i,:) = magReadings;
+    mag(iii,:) = magReadings;
     
-    Mx(i) = (mag(i,1) - Offset(1))*Scale(1); % Hard Iron Correction & % Soft Iron Correction
-    MagX = Mx(i); 
+    Mx(iii) = (mag(iii,1) - Offset(1))*Scale(1); % Hard Iron Correction & % Soft Iron Correction
+    MagX = Mx(iii); 
     
-    My(i) = (mag(i,2) - Offset(2))*Scale(2);
-    MagY = My(i);
+    My(iii) = (mag(iii,2) - Offset(2))*Scale(2);
+    MagY = My(iii);
     
-    Mz(i) = (mag(i,3) - Offset(3))*Scale(3);
-    MagZ = Mz(i);
+    Mz(iii) = (mag(iii,3) - Offset(3))*Scale(3);
+    MagZ = Mz(iii);
 
     fieldMagnitude  = norm([MagX MagY MagZ]);
     
@@ -239,15 +239,18 @@ for iii = startSample:stopSample
     PsiKalman = [PsiKalman; yaw]; 
     
     %% Plotting
-    
-    subplot(2,1,1);
+    subplot(3,1,1);
     grid on
     plot(rad2deg(PhiKalman))
     title("X-Axis Rotation")
     
-    subplot(2,1,2);
+    subplot(3,1,2);
     plot(rad2deg(ThetaKalman))
     title("Y-Axis Rotation")
+    
+    subplot(3,1,3);
+    plot(rad2deg(PsiKalman))
+    title("Z-Axis Rotation")
     
     %% Repeat for next iteration
     states = Xk;
@@ -315,7 +318,7 @@ end
 
 function [Offsets, Scale] = CalibrateMag(imu)
 
-    fprintf("Calibrating Magnetometer :\n")
+    fprintf("Calibrating Magnetometer:\n")
 
     fprintf("Please move the sensor in a figure 8 pattern to collect samples at different orientations\n")
 

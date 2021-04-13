@@ -2,7 +2,7 @@
 % arduinosetup();
 
 %% Name the file to save
-fileName = '/AHRS_Trial2.xlsx';
+fileName = '/AHRS_Trial3.xlsx';
 
 filePath = '/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/realTimeMatlabCode/ExtendedKalman/EKF_9DOF_Files';
 
@@ -288,7 +288,7 @@ end
 
 function [Offsets, Scale] = CalibrateMag(imu)
 
-    fprintf("Calibrating Magnetometer :\n")
+    fprintf("Calibrating Magnetometer:\n")
 
     fprintf("Please move the sensor in a figure 8 pattern to collect samples at different orientations\n")
 
