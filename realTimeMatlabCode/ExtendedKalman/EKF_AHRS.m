@@ -2,9 +2,9 @@
 % arduinosetup();
 
 %% Name the file to save
-fileName = '/Trial4_noAccel.xlsx';
+fileName = '/AHRS_Trial2.xlsx';
 
-filePath = '/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/realTimeMatlabCode/ExtendedKalman/EKF_6DOF_Files';
+filePath = '/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/realTimeMatlabCode/ExtendedKalman/EKF_9DOF_Files';
 
 %% Sensor info
 
@@ -12,17 +12,14 @@ port = '/dev/cu.usbserial-AB0L9PP9';
 board = 'Nano3';
 a = arduino(port,board);
 
-% Port: '/dev/cu.usbmodem401'
-% Board: 'Mega2560'
-
 imu = mpu9250(a,'SamplesPerRead', 100);
 
-% SampleRate = 100 (samples/s)
 dt = 1/100;
 
 startSample = 1;
-stopSample = 1500;
+stopSample = 3000;
 
+accel = zeros(stopSample, 3);   % [m/s^2]
 gyro = zeros(stopSample, 3);    % [rad/s]
 mag = zeros(stopSample, 3);     % [µT]
 
@@ -30,20 +27,21 @@ Mx = zeros(stopSample, 1);
 My = zeros(stopSample, 1);
 Mz = zeros(stopSample, 1);
 
+[OSX,OSY,OSZ] = calibrateGyro(imu);
+
+fprintf("\n")
+
+[xOff,yOff,zOff] = calibrateAccel(imu);
+
+fprintf("\n")
+
 [Offset, Scale] = CalibrateMag(imu);
 fprintf("\n")
 
-[OSX,OSY,OSZ] = calibrateGyro(imu);
-
+% Initial conditions
 Phi = 0; 
 Theta = 0;
 Psi = 0;
-
-% Expected Field Strength 
-ExpField = @(x) sqrt((x.^2)/3);
-
-% Magnitude at the Earth's surface ranges from 25 to 65 microteslas
-Field = ExpField(45);
 
 fprintf("\nNow Gathering Data\n")
 
@@ -59,7 +57,7 @@ G = [dt 0 0;
      0 dt 0; 
      0 0 dt];
  
-zk = zeros(3,1);
+zk = [0;0;0];
 
 h_of_x = zk; 
 
@@ -79,11 +77,11 @@ Wk = 0;
 Qk = eye(size(Pk_1))*GyroSpectralDensity;
 
 % Measurement noise
-Rk = eye(length(zk))*30;
+Rk = eye(size(Pk_1))*0.085;
 
 H = eye(size(Pk_1));
 
-I = eye(size(Pk_1));
+I = eye(size(H));
 
 %% Values we want to plot 
 
@@ -91,8 +89,13 @@ PhiKalman = [];
 ThetaKalman = [];
 PsiKalman = [];
 
+% Complimentary filter gain
+alpha = 0.999;
 
 for i = startSample:stopSample
+    
+    [accelReadings,~] = readAcceleration(imu);
+    accel(i,:) = (accelReadings / 9.81) - [xOff,yOff,zOff]; % in G's
     
     [gyroReadings,~] = readAngularVelocity(imu);
     gyro(i,:) = gyroReadings - [OSX,OSY,OSZ];
@@ -108,10 +111,10 @@ for i = startSample:stopSample
     
     Mz(i) = (mag(i,3) - Offset(3))*Scale(3);
     MagZ = Mz(i);
-    
-    totalMag = [Mx My Mz];
-    
+
     fieldMagnitude  = norm([MagX MagY MagZ]);
+    
+    % Normalizing (we care more about the direction than magnitude)
     
     MagX = MagX/fieldMagnitude;
     
@@ -119,6 +122,7 @@ for i = startSample:stopSample
     
     MagZ = MagZ/fieldMagnitude;
     
+    magField = [MagX; MagY; MagZ];
     
     %% To NED Frame
     GyroX = gyro(i,2);
@@ -127,13 +131,24 @@ for i = startSample:stopSample
     
     Gyro = [GyroX;GyroY;GyroZ];
     
-    % Mag is already in NED
+    AccelX = accel(i,2);
+    AccelY = accel(i,1);
+    AccelZ = -accel(i,3);
     
-    %% Converting Gyro to Euler rates
-    if Theta == 1.5708  % Lazy way of avoiding gimbal lock
+     % Normalizing 
+     
+    accelMag = norm([AccelX AccelY AccelZ]);
+    
+    AccelX = AccelX/accelMag;
+    AccelY = AccelY/accelMag;
+    AccelZ = AccelZ/accelMag;
+    
+    if Theta == 1.5708  % Lazy way of avoiding gimbal lock (temporary)
         Theta = 1.5516;
     end 
     
+    
+    %% Converting Gyro to Euler rates
     [phiDot,thetaDot,psiDot] = EulerRate(Phi,Theta, Gyro);
     
     % Euler Rates are inputs into the system
@@ -151,14 +166,14 @@ for i = startSample:stopSample
     Sk = H*Mk*H.' + Rk;
     
     % Measurement (evidence)
-    zk = [MagX; MagY; MagZ];
+    zk = [AccelX; AccelY; AccelZ];
     
-    % Measurement Model Magnetometer
-    [mx,my,mz] = MagnetModel(Xkp(2), Xkp(3));
+    % Measurement Model Accelerometer
+    [ax,ay,az] = AccelModel(Xkp(1), Xkp(2));
     
-    h_of_x = [mx;my;mz];
+    h_of_x = [ax;ay;az];
     
-    H = MeasurementJacobian(Xkp(2), Xkp(3));
+    H = MeasurementJacobian(Xkp(1), Xkp(2));
     
     % Innovation (Residual)
     yk = zk - h_of_x;
@@ -176,38 +191,36 @@ for i = startSample:stopSample
     % Covariance Update
     Pk = (I - K*H)*Mk*(I - K*H).' + (K*Rk*K.');
     
+    %% Complimentary filter
+    B = rotationMatrix(magField, Phi, Theta, Psi);
+    
+    mbx = B(1);
+    mby = B(2);
+    
+    psi_comp = atan2(mby,mbx);
+    
+    yaw = (alpha*Psi) + (1-alpha)*psi_comp;
+    
     % Store for plotting
     PhiKalman = [PhiKalman; Xk(1)];
     ThetaKalman = [ThetaKalman; Xk(2)];
-    PsiKalman = [PsiKalman; Xk(3)];
+    PsiKalman = [PsiKalman; yaw]; 
     
     %% Plotting
     
-%     figure(1)
-%     subplot(3,1,1);
-%     grid on
-%     plot(rad2deg(PhiKalman))
-%     title("X-Axis Rotation")
-%     
-%     subplot(3,1,2);
-%     plot(rad2deg(ThetaKalman))
-%     title("Y-Axis Rotation")
-%    
-%     subplot(3,1,3);
-%     plot(rad2deg(PsiKalman))
-%     title("Z-Axis Rotation")
-
-    figure(2)
-    subplot(2,1,1)
-    grid on
-    plot(rad2deg(gyro))
-    title("Gyroscope Angular Velocity [°/s]")
+    subplot(3,1,1);
+    plot(rad2deg(PhiKalman))
+    title("X-Axis Rotation")
     
-    subplot(2,1,2)
-    grid on
-    plot(totalMag)
-    title("Magnetic Field [µT]")
+    subplot(3,1,2);
+    plot(rad2deg(ThetaKalman))
+    title("Y-Axis Rotation")
+    
+    subplot(3,1,3);
+    plot(rad2deg(PsiKalman))
+    title("Z-Axis Rotation")
 
+  
     % Redefining for next iteration
     Xk_1 = Xk;
     
@@ -225,8 +238,6 @@ fprintf("\nData Exported\n")
 
 
 function [OSX,OSY,OSZ] = calibrateGyro(imu)
-
-    fprintf("Calibrating Gyroscope :\n")
     
     fprintf("Please do not move sensor while calibrating gyro\n")
     
@@ -248,6 +259,31 @@ function [OSX,OSY,OSZ] = calibrateGyro(imu)
    OSZ = mean(buffer(:,3));
    
    fprintf("Gyroscope Calibration Complete\n")
+end 
+
+function [xOff, yOff, zOff] = calibrateAccel(imu)
+
+fprintf("Please do not move sensor while calibrating the accelerometer\n")
+    
+    buffer = zeros(200, 3);
+    
+   for j = 1:length(buffer)*5 % Throwing out first 1000 readings
+       [~,~] = readAcceleration(imu);
+   end 
+   
+   for i = 1:length(buffer)
+       [accelSamples,~] = readAcceleration(imu);
+       buffer(i,:) = accelSamples / 9.81; % in G's
+   end 
+   
+   xOff = mean(buffer(:,1));
+   
+   yOff = mean(buffer(:,2));
+   
+   zOff = mean(buffer(:,3)) - 1;
+   
+   fprintf("Accelerometer Calibration Complete\n")
+
 end 
 
 function [Offsets, Scale] = CalibrateMag(imu)
@@ -322,21 +358,33 @@ psiDot = EulerRates(3);
 
 end 
 
-function H = MeasurementJacobian(theta,psi)
+function H = MeasurementJacobian(phi,theta)
 
-H = [0 -sin(theta)*cos(psi) -cos(theta)*sin(psi);
-     0 -sin(theta)*sin(psi)  cos(theta)*cos(psi);
-     0  -cos(theta)          0];
-   
-end 
-
-
-function [mx,my,mz] = MagnetModel(theta,psi)
-
-mx = cos(theta)*cos(psi);
-
-my = cos(theta)*sin(psi);
-
-mz = -sin(theta);
+H = [0 -cos(theta) 0; 
+    cos(theta)*cos(phi) -sin(theta)*sin(phi) 0; 
+    -cos(theta)*sin(phi) -sin(theta)*cos(phi) 0];
 
 end 
+
+function [ax,ay,az] = AccelModel(Phi, Theta)
+
+ax = - sin(Theta);
+
+ay = cos(Theta)*sin(Phi);
+
+az = cos(Theta)*cos(Phi);
+end 
+
+function B = rotationMatrix(A, phi, theta, psi)
+
+X = [1 0 0; 0 cos(phi) sin(phi); 0 -sin(phi) cos(phi)];
+
+Y = [cos(theta) 0 -sin(theta); 0 1 0; sin(theta) 0 cos(theta)];
+
+Z = [cos(psi) sin(psi) 0; -sin(psi) cos(psi) 0; 0 0 1];
+
+R = (X*Y)*Z;
+
+B = R*A;
+
+ end 

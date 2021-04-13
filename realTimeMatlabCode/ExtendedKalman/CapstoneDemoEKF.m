@@ -2,7 +2,7 @@
 % arduinosetup();
 
 %% Name the file to save
-fileName = '/inLab1.xlsx';
+fileName = '/inLab4.xlsx';
 
 filePath = '/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/realTimeMatlabCode/ExtendedKalman/EKF_6DOF_Files';
 
@@ -12,15 +12,9 @@ port = '/dev/cu.usbserial-AB0L9PP9';
 board = 'Nano3';
 a = arduino(port,board);
 
-% Port: '/dev/cu.usbmodem401'
-% Board: 'Mega2560'
+imu = mpu6050(a,'SamplesPerRead', 100);
 
-imu = mpu9250(a,'SamplesPerRead', 100);
-
-% SampleRate = 100 (samples/s)
 dt = 1/100;
-
-% SamplesPerRead = 10
 
 startSample = 1;
 stopSample = 3000;
@@ -30,6 +24,11 @@ gyro = zeros(stopSample, 3);    % [rad/s]
 
 [OSX,OSY,OSZ] = calibrateGyro(imu);
 
+fprintf("\n")
+
+[xOff,yOff,zOff] = calibrateAccel(imu);
+
+% Initial conditions
 Phi = 0; 
 Theta = 0;
 Psi = 0;
@@ -83,7 +82,7 @@ PsiKalman = [];
 for i = startSample:stopSample
     
     [accelReadings,~] = readAcceleration(imu);
-    accel(i,:) = accelReadings / 9.81; % in G's
+    accel(i,:) = (accelReadings / 9.81) - [xOff,yOff,zOff]; % in G's
     
     [gyroReadings,~] = readAngularVelocity(imu);
     gyro(i,:) = gyroReadings - [OSX,OSY,OSZ];
@@ -99,10 +98,18 @@ for i = startSample:stopSample
     AccelY = accel(i,1);
     AccelZ = -accel(i,3);
     
-    %% Converting Gyro to Euler rates
-    if Theta == 1.5708  % Lazy way of avoiding gimbal lock
+    accelMag = norm([AccelX AccelY AccelZ]);
+    
+    AccelX = AccelX/accelMag;
+    AccelY = AccelY/accelMag;
+    AccelZ = AccelZ/accelMag;
+    
+    if Theta == 1.5708  % Lazy way of avoiding gimbal lock (temporary)
         Theta = 1.5516;
     end 
+    
+    
+    %% Converting Gyro to Euler rates
     [phiDot,thetaDot,psiDot] = EulerRate(Phi,Theta, Gyro);
     
     % Euler Rates are inputs into the system
@@ -147,34 +154,18 @@ for i = startSample:stopSample
     % Store for plotting
     PhiKalman = [PhiKalman; Xk(1)];
     ThetaKalman = [ThetaKalman; Xk(2)];
-    PsiKalman = [PsiKalman; Xk(3)];
+    PsiKalman = [PsiKalman; Xk(3)]; % drift
     
     %% Plotting
     
-    figure(1)
-    subplot(3,1,1);
-    grid on
+    subplot(2,1,1);
     plot(rad2deg(PhiKalman))
     title("X-Axis Rotation")
     
-    subplot(3,1,2);
+    subplot(2,1,2);
     plot(rad2deg(ThetaKalman))
     title("Y-Axis Rotation")
-   
-    subplot(3,1,3);
-    plot(rad2deg(PsiKalman))
-    title("Z-Axis Rotation")
-    
-%     figure(2)
-%     subplot(2,1,1)
-%     grid on
-%     plot(rad2deg(gyro))
-%     title("Gyroscope Angular Velocity [°/s]")
-%     
-%     subplot(2,1,2)
-%     grid on
-%     plot(accel)
-%     title("Accelerometer [G]")
+
   
     % Redefining for next iteration
     Xk_1 = Xk;
@@ -215,6 +206,31 @@ function [OSX,OSY,OSZ] = calibrateGyro(imu)
    
    fprintf("Gyroscope Calibration Complete\n")
 end 
+
+function [xOff, yOff, zOff] = calibrateAccel(imu)
+
+fprintf("Please do not move sensor while calibrating the accelerometer\n")
+    
+    buffer = zeros(200, 3);
+    
+   for j = 1:length(buffer)*5 % Throwing out first 1000 readings
+       [~,~] = readAcceleration(imu);
+   end 
+   
+   for i = 1:length(buffer)
+       [accelSamples,~] = readAcceleration(imu);
+       buffer(i,:) = accelSamples / 9.81; % in G's
+   end 
+   
+   xOff = mean(buffer(:,1));
+   
+   yOff = mean(buffer(:,2));
+   
+   zOff = mean(buffer(:,3)) - 1;
+   
+   fprintf("Accelerometer Calibration Complete\n")
+
+end 
     
 function ExportSheet(fileName, filePath, table)
 
@@ -241,7 +257,9 @@ end
 
 function H = MeasurementJacobian(phi,theta)
 
-H = [0 -cos(theta) 0; cos(theta)*cos(phi) -sin(theta)*sin(phi) 0; -cos(theta)*sin(phi) -sin(theta)*cos(phi) 0];
+H = [0 -cos(theta) 0; 
+    cos(theta)*cos(phi) -sin(theta)*sin(phi) 0; 
+    -cos(theta)*sin(phi) -sin(theta)*cos(phi) 0];
 
 end 
 

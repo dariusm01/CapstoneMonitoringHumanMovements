@@ -44,12 +44,22 @@ stopSample = 1500;
 
 accel = zeros(stopSample, 3);   % [m/s^2]
 gyro = zeros(stopSample, 3);    % [rad/s]
+mag = zeros(stopSample, 3);     % [µT]
+
+Mx = zeros(stopSample, 1);
+My = zeros(stopSample, 1);
+Mz = zeros(stopSample, 1);
 
 [OSX,OSY,OSZ] = calibrateGyro(imu);
 
 fprintf("\n")
 
 [xOff,yOff,zOff] = calibrateAccel(imu);
+
+fprintf("\n")
+
+[Offset, Scale] = CalibrateMag(imu);
+fprintf("\n")
 
 % Initial conditions
 Phi = 0; 
@@ -89,6 +99,9 @@ PhiKalman = [];
 ThetaKalman = [];
 PsiKalman = [];
 
+% Complimentary filter gain
+gamma = 0.999;
+
 for iii = startSample:stopSample
     
     [accelReadings,~] = readAcceleration(imu);
@@ -96,6 +109,30 @@ for iii = startSample:stopSample
     
     [gyroReadings,~] = readAngularVelocity(imu);
     gyro(iii,:) = gyroReadings - [OSX,OSY,OSZ];
+    
+    [magReadings,~] = readMagneticField(imu);
+    mag(i,:) = magReadings;
+    
+    Mx(i) = (mag(i,1) - Offset(1))*Scale(1); % Hard Iron Correction & % Soft Iron Correction
+    MagX = Mx(i); 
+    
+    My(i) = (mag(i,2) - Offset(2))*Scale(2);
+    MagY = My(i);
+    
+    Mz(i) = (mag(i,3) - Offset(3))*Scale(3);
+    MagZ = Mz(i);
+
+    fieldMagnitude  = norm([MagX MagY MagZ]);
+    
+    % Normalizing (we care more about the direction than magnitude)
+    
+    MagX = MagX/fieldMagnitude;
+    
+    MagY = MagY/fieldMagnitude;
+    
+    MagZ = MagZ/fieldMagnitude;
+    
+    magField = [MagX; MagY; MagZ];
     
     %% To NED Frame
     GyroX = gyro(iii,2);
@@ -107,6 +144,14 @@ for iii = startSample:stopSample
     AccelX = accel(iii,2);
     AccelY = accel(iii,1);
     AccelZ = -accel(iii,3);
+    
+    % Normalizing 
+     
+    accelMag = norm([AccelX AccelY AccelZ]);
+    
+    AccelX = AccelX/accelMag;
+    AccelY = AccelY/accelMag;
+    AccelZ = AccelZ/accelMag;
     
     %% First, gather sigma points
 
@@ -170,14 +215,28 @@ for iii = startSample:stopSample
     
     %% Update the state
     Xk = Mu_x + K*y;
-
+    
+    Phi = Xk(1);
+    Theta = Xk(2);
+    Psi = Xk(3);
+    
+    %% Complimentary filter
+    B = rotationMatrix(magField, Phi, Theta, Psi);
+    
+    mbx = B(1);
+    mby = B(2);
+    
+    psi_comp = atan2(mby,mbx);
+    
+    yaw = (gamma*Psi) + (1-gamma)*psi_comp;
+    
     %% Update the covariance
     Pk = Px - K*(Pz)*K.';
     
     % Store for plotting
     PhiKalman = [PhiKalman; Xk(1)];
     ThetaKalman = [ThetaKalman; Xk(2)];
-    PsiKalman = [PsiKalman; Xk(3)]; % drift
+    PsiKalman = [PsiKalman; yaw]; 
     
     %% Plotting
     
@@ -262,3 +321,16 @@ writetable(table, fileToSave);
 
 end 
 
+function B = rotationMatrix(A, phi, theta, psi)
+
+X = [1 0 0; 0 cos(phi) sin(phi); 0 -sin(phi) cos(phi)];
+
+Y = [cos(theta) 0 -sin(theta); 0 1 0; sin(theta) 0 cos(theta)];
+
+Z = [cos(psi) sin(psi) 0; -sin(psi) cos(psi) 0; 0 0 1];
+
+R = (X*Y)*Z;
+
+B = R*A;
+
+ end 

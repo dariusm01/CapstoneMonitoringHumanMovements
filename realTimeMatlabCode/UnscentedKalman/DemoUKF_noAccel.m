@@ -1,26 +1,8 @@
-% An example of the first iteration of the unscented kalman filter for 
-% our project. 
-%   The steps include:
-%   1. Initializing the states and covariance
-%   2. Calculate sigma points (cholesky decomp for matrix sqrt)
-%   3. Prediction - > plug in sigma points into prediction equation
-%   4. Calculate the weights Wm & Wc (mean and covariance)
-%   5. Perform the Unscented Transform to get μx (prior) and Px
-%   6. Measurements -> use the μx & Px to find new sigma points
-%   7. Plug the new sigma points into the measurement model equation(s) 
-%   8. Find μz (unscented transform)
-%   9. Take measurement (z)
-%  10. Find Pz (measurement covariance)
-%  11. Calculate the cross - covariance (Pxz)
-%  12. Determine the kalman gain (K)
-%  13. Use the kalman gain to find the estimation (posterior)
-%  14. Update the covariance 
-%  15. Repeat for next time step
 
 % arduinosetup();
 
 %% Name the file to save
-fileName = '/Trial4.xlsx';
+fileName = '/Trial1_no_accel.xlsx';
 
 filePath = '/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/realTimeMatlabCode/UnscentedKalman';
 
@@ -31,10 +13,7 @@ port = '/dev/cu.usbserial-AB0L9PP9';
 board = 'Nano3';
 a = arduino(port,board);
 
-% Port: '/dev/cu.usbmodem401'
-% Board: 'Mega2560'
-
-imu = mpu6050(a,'SamplesPerRead', 100);
+imu = mpu9250(a,'SamplesPerRead', 100);
 
 % SampleRate = 100 (samples/s)
 dt = 1/100;
@@ -42,16 +21,18 @@ dt = 1/100;
 startSample = 1;
 stopSample = 1500;
 
-accel = zeros(stopSample, 3);   % [m/s^2]
 gyro = zeros(stopSample, 3);    % [rad/s]
+mag = zeros(stopSample, 3);     % [µT]
+
+Mx = zeros(stopSample, 1);
+My = zeros(stopSample, 1);
+Mz = zeros(stopSample, 1);
+
+[Offset, Scale] = CalibrateMag(imu);
+fprintf("\n")
 
 [OSX,OSY,OSZ] = calibrateGyro(imu);
 
-fprintf("\n")
-
-[xOff,yOff,zOff] = calibrateAccel(imu);
-
-% Initial conditions
 Phi = 0; 
 Theta = 0;
 Psi = 0;
@@ -91,11 +72,30 @@ PsiKalman = [];
 
 for iii = startSample:stopSample
     
-    [accelReadings,~] = readAcceleration(imu);
-    accel(iii,:) = (accelReadings / 9.81) - [xOff,yOff,zOff]; % in G's
-    
     [gyroReadings,~] = readAngularVelocity(imu);
     gyro(iii,:) = gyroReadings - [OSX,OSY,OSZ];
+    
+    [magReadings,~] = readMagneticField(imu);
+    mag(iii,:) = magReadings;
+    
+    Mx(iii) = (mag(iii,1) - Offset(1))*Scale(1); % Hard Iron Correction & % Soft Iron Correction
+    MagX = Mx(iii); 
+    
+    My(iii) = (mag(iii,2) - Offset(2))*Scale(2);
+    MagY = My(iii);
+    
+    Mz(iii) = (mag(iii,3) - Offset(3))*Scale(3);
+    MagZ = Mz(iii);
+    
+    totalMag = [Mx My Mz];
+    
+    fieldMagnitude  = norm([MagX MagY MagZ]);
+    
+    MagX = MagX/fieldMagnitude;
+    
+    MagY = MagY/fieldMagnitude;
+    
+    MagZ = MagZ/fieldMagnitude;
     
     %% To NED Frame
     GyroX = gyro(iii,2);
@@ -103,10 +103,6 @@ for iii = startSample:stopSample
     GyroZ = -gyro(iii,3);
     
     Gyro = [GyroX;GyroY;GyroZ];
-    
-    AccelX = accel(iii,2);
-    AccelY = accel(iii,1);
-    AccelZ = -accel(iii,3);
     
     %% First, gather sigma points
 
@@ -137,19 +133,21 @@ for iii = startSample:stopSample
     %% Passing sigma points through non linear measurement model:
     % the measurement function converts the filter’s prior into a measurement
     
-    % Measurement Model Accelerometer
+    % Measurement Model Magnetometer ψ
     
-    % |ax|     |    -sin(θ)    |
-    % |ay|  =  |  cos(θ)sin(φ) |
-    % |az|     |  cos(θ)cos(φ) |
+    % |mx|     |  cos(θ)cos(ψ) |
+    % |my|  =  |  cos(θ)sin(ψ) |
+    % |mz|     |    -sin(ψ)    |
+
  
     newMeasurementSigmaPoints = zeros(size(newSigmaPoints));
     
     for i = 1:length(newMeasurementSigmaPoints)
-        newMeasurementSigmaPoints(1,i) = -sin(newSigmaPoints(2,i));
-        newMeasurementSigmaPoints(2,i) = cos(newSigmaPoints(2,i))*sin(newSigmaPoints(1,i)); 
-        newMeasurementSigmaPoints(3,i) = cos(newSigmaPoints(2,i))*cos(newSigmaPoints(1,i));
+        newMeasurementSigmaPoints(1,i) = cos(newSigmaPoints(2,i))*cos(newSigmaPoints(3,i));
+        newMeasurementSigmaPoints(2,i) = cos(newSigmaPoints(2,i))*sin(newSigmaPoints(3,i)); 
+        newMeasurementSigmaPoints(3,i) = -sin(newSigmaPoints(3,i));
     end 
+
 
     Mu_z = newMeasurementSigmaPoints*Wm;
 
@@ -157,7 +155,7 @@ for iii = startSample:stopSample
     Pz = PredictCovarianceUKF(newMeasurementSigmaPoints, newSigmaPoints, Mu_z, Wc, Rk);
 
     % measurements from sensor
-    z = [AccelX; AccelY; AccelZ];
+    z = [MagX; MagY; MagZ];
     
     %% Cross Covariance
     Pxz = CrossCovariance(Mu_x, Mu_z, newSigmaPoints, newMeasurementSigmaPoints, Wc);
@@ -177,18 +175,22 @@ for iii = startSample:stopSample
     % Store for plotting
     PhiKalman = [PhiKalman; Xk(1)];
     ThetaKalman = [ThetaKalman; Xk(2)];
-    PsiKalman = [PsiKalman; Xk(3)]; % drift
+    PsiKalman = [PsiKalman; Xk(3)];
     
     %% Plotting
     
-    subplot(2,1,1);
+    subplot(3,1,1);
     grid on
     plot(rad2deg(PhiKalman))
     title("X-Axis Rotation")
     
-    subplot(2,1,2);
+    subplot(3,1,2);
     plot(rad2deg(ThetaKalman))
     title("Y-Axis Rotation")
+   
+    subplot(3,1,3);
+    plot(rad2deg(PsiKalman))
+    title("Z-Axis Rotation")
     
     %% Repeat for next iteration
     states = Xk;
@@ -226,32 +228,6 @@ function [OSX,OSY,OSZ] = calibrateGyro(imu)
    OSZ = mean(buffer(:,3));
    
    fprintf("Gyroscope Calibration Complete\n")
-   
-end 
-
-function [xOff, yOff, zOff] = calibrateAccel(imu)
-
-fprintf("Please do not move sensor while calibrating the accelerometer\n")
-    
-    buffer = zeros(200, 3);
-    
-   for j = 1:length(buffer)*5 % Throwing out first 1000 readings
-       [~,~] = readAcceleration(imu);
-   end 
-   
-   for i = 1:length(buffer)
-       [accelSamples,~] = readAcceleration(imu);
-       buffer(i,:) = accelSamples / 9.81; % in G's
-   end 
-   
-   xOff = mean(buffer(:,1));
-   
-   yOff = mean(buffer(:,2));
-   
-   zOff = mean(buffer(:,3)) - 1;
-   
-   fprintf("Accelerometer Calibration Complete\n")
-
 end 
 
 function ExportSheet(fileName, filePath, table)
@@ -260,5 +236,54 @@ fileToSave = strcat(filePath, fileName);
 
 writetable(table, fileToSave);
 
+end 
+
+function [Offsets, Scale] = CalibrateMag(imu)
+
+    fprintf("Calibrating Magnetometer :\n")
+
+    fprintf("Please move the sensor in a figure 8 pattern to collect samples at different orientations\n")
+
+    buffer = zeros(200, 3);
+    
+    for j = 1:length(buffer)*7 % Throwing out first 1400 readings
+       [~,~] = readMagneticField(imu);
+    end 
+
+    for i = 1:length(buffer)
+       [magSamples,~] = readMagneticField(imu);
+       buffer(i,:) = magSamples; 
+    end 
+    
+    
+    MagX =  buffer(:,1);
+    MagY =  buffer(:,2);
+    MagZ =  buffer(:,3);
+    
+    %% Hard Iron Correction
+
+    MagXOffset = (max(MagX)+min(MagX))/2;
+    MagYOffset = (max(MagY)+min(MagY))/2;
+    MagZOffset = (max(MagZ)+min(MagZ))/2;
+
+    MagXHI = MagX-MagXOffset;
+    MagYHI = MagY-MagYOffset;
+    MagZHI = MagZ-MagZOffset;
+
+    %% Soft Iron Correction 
+    chordX = (max(MagXHI) - min(MagXHI))/2;
+    chordY = (max(MagYHI) - min(MagYHI))/2;
+    chordZ = (max(MagZHI) - min(MagZHI))/2;
+
+    chord_average = (chordX + chordY + chordZ)/3;
+
+    MagXScale = chord_average/chordX;
+    MagYScale = chord_average/chordY;
+    MagZScale = chord_average/chordZ;
+    
+    Offsets = [MagXOffset MagYOffset MagZOffset];
+    Scale = [MagXScale MagYScale MagZScale];
+    
+    fprintf("Magnetometer Calibration Complete\n")
 end 
 
