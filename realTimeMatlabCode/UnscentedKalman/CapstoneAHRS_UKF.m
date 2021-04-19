@@ -1,28 +1,10 @@
-% An example of the first iteration of the unscented kalman filter for 
-% our project. 
-%   The steps include:
-%   1. Initializing the states and covariance
-%   2. Calculate sigma points (cholesky decomp for matrix sqrt)
-%   3. Prediction - > plug in sigma points into prediction equation
-%   4. Calculate the weights Wm & Wc (mean and covariance)
-%   5. Perform the Unscented Transform to get μx (prior) and Px
-%   6. Measurements -> use the μx & Px to find new sigma points
-%   7. Plug the new sigma points into the measurement model equation(s) 
-%   8. Find μz (unscented transform)
-%   9. Take measurement (z)
-%  10. Find Pz (measurement covariance)
-%  11. Calculate the cross - covariance (Pxz)
-%  12. Determine the kalman gain (K)
-%  13. Use the kalman gain to find the estimation (posterior)
-%  14. Update the covariance 
-%  15. Repeat for next time step
 
 % arduinosetup();
 
 %% Name the file to save
-fileName = '/AHRS_Trial2.xlsx';
+fileName = '/QuaternionMovingTrial_2.xlsx';
 
-filePath = '/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/realTimeMatlabCode/UnscentedKalman';
+filePath = '/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/realTimeMatlabCode/UnscentedKalman/UKF_9DOF';
 
 addpath('UnscentedFilter');
 
@@ -31,16 +13,12 @@ port = '/dev/cu.usbserial-AB0L9PP9';
 board = 'Nano3';
 a = arduino(port,board);
 
-% Port: '/dev/cu.usbmodem401'
-% Board: 'Mega2560'
-
 imu = mpu9250(a,'SamplesPerRead', 100);
 
-% SampleRate = 100 (samples/s)
 dt = 1/100;
 
 startSample = 1;
-stopSample = 1500;
+stopSample = 3000;
 
 accel = zeros(stopSample, 3);   % [m/s^2]
 gyro = zeros(stopSample, 3);    % [rad/s]
@@ -61,16 +39,9 @@ fprintf("\n")
 [Offset, Scale] = CalibrateMag(imu);
 fprintf("\n")
 
-% Initial conditions
-Phi = 0; 
-Theta = 0;
-Psi = 0;
-
 fprintf("\nNow Gathering Data\n") 
 
-%% Initializing the states and covariance
-
-states = [Phi; Theta; Psi];
+states = [1;0;0;0]; % initial quaternion
 
 P = 500*eye(length(states));
 
@@ -91,7 +62,14 @@ Wk = 0;
 
 Qk = eye(size(P))*GyroSpectralDensity;
 
-Rk = eye(size(P))*0.085;
+Rk = eye(6)*0.045;
+
+% Magnetometer variances (found after some trials)
+Rk(4,4) = 2.0874;
+
+Rk(5,5) = 38.2628;
+
+Rk(6,6) = 28.6100;
 
 %% Values we want to plot 
 
@@ -99,8 +77,10 @@ PhiKalman = [];
 ThetaKalman = [];
 PsiKalman = [];
 
-% Complimentary filter gain
-gamma = 0.999;
+% Magnetic declination angle
+magDip = dms2degrees([-11 8 25]); % -11° 8' 25" using my coordinates
+
+magDip = deg2rad(magDip);
 
 for iii = startSample:stopSample
     
@@ -132,8 +112,6 @@ for iii = startSample:stopSample
     
     MagZ = MagZ/fieldMagnitude;
     
-    magField = [MagX; MagY; MagZ];
-    
     %% To NED Frame
     GyroX = gyro(iii,2);
     GyroY = gyro(iii,1);
@@ -161,7 +139,8 @@ for iii = startSample:stopSample
 
     %% Then, pass the sigma points through your model (Prediction)
     % Input the epoch (dt), sigma Points, and noise (wk)
-    NewPrediction = firstOrderUKFPropagation(samplePoints, dt, Gyro, Wk);
+
+    NewPrediction = stateProp(samplePoints, dt, Gyro, Wk);
     
     %% Compute the weights 
     [Wc, Wm] = weights(NewPrediction,alpha,beta);
@@ -169,40 +148,47 @@ for iii = startSample:stopSample
     %% Perform the Unscented Transform by summing the sample mean and covariances
     %% With their respective weights to produce a new mean and covariance
 
-    Mu_x = NewPrediction*Wm; % Prior
+    mean_vec = quatnormalize((NewPrediction*Wm).'); % Prior
+    
+    Mu_x = mean_vec.';
 
     Px = PredictCovarianceUKF(NewPrediction, samplePoints, Mu_x ,Wc, Qk);
-
+    
+    [~,EigenVal] = eig(Px);
+    
+    if EigenVal(EigenVal < 0) 
+        [Px_new,~] = isSemiDef(Px);
+    else 
+        Px_new = Px;
+    end 
+        
     %% Measurements
     % First get the new sigma points from the newly calculated mean and
     % covariance
 
-    newSigmaPoints = sigmaPoints(Mu_x,Px,alpha);
+    newSigmaPoints = sigmaPoints(Mu_x,Px_new,alpha);
 
     %% Passing sigma points through non linear measurement model:
     % the measurement function converts the filter’s prior into a measurement
     
-    % Measurement Model Accelerometer
+    AccelMagModel = MeasurementModel(newSigmaPoints,magDip);
     
-    % |ax|     |    -sin(θ)    |
-    % |ay|  =  |  cos(θ)sin(φ) |
-    % |az|     |  cos(θ)cos(φ) |
- 
-    newMeasurementSigmaPoints = zeros(size(newSigmaPoints));
+    newMeasurementSigmaPoints = AccelMagModel;
     
-    for i = 1:length(newMeasurementSigmaPoints)
-        newMeasurementSigmaPoints(1,i) = -sin(newSigmaPoints(2,i));
-        newMeasurementSigmaPoints(2,i) = cos(newSigmaPoints(2,i))*sin(newSigmaPoints(1,i)); 
-        newMeasurementSigmaPoints(3,i) = cos(newSigmaPoints(2,i))*cos(newSigmaPoints(1,i));
-    end 
-
-    Mu_z = newMeasurementSigmaPoints*Wm;
+    tempMu_z = newMeasurementSigmaPoints*Wm;
+    
+    accelMuNorm = tempMu_z(1:3)/norm(tempMu_z(1:3)); % Normalizing
+    
+    magMuNorm = tempMu_z(4:6)/norm(tempMu_z(4:6)); % Normalizing
+    
+    Mu_z = [accelMuNorm;magMuNorm];
 
     %% Measurment covariance
     Pz = PredictCovarianceUKF(newMeasurementSigmaPoints, newSigmaPoints, Mu_z, Wc, Rk);
 
     % measurements from sensor
-    z = [AccelX; AccelY; AccelZ];
+    
+    z = [AccelX;AccelY;AccelZ;MagX;MagY;MagZ];
     
     %% Cross Covariance
     Pxz = CrossCovariance(Mu_x, Mu_z, newSigmaPoints, newMeasurementSigmaPoints, Wc);
@@ -215,30 +201,33 @@ for iii = startSample:stopSample
     
     %% Update the state
     Xk = Mu_x + K*y;
+    Xk = quatnormalize(Xk.'); % [1x4]
     
-    Phi = Xk(1);
-    Theta = Xk(2);
-    Psi = Xk(3);
-    
-    %% Complimentary filter
-    B = rotationMatrix(magField, Phi, Theta, Psi);
-    
-    mbx = B(1);
-    mby = B(2);
-    
-    psi_comp = atan2(mby,mbx);
-    
-    yaw = (gamma*Psi) + (1-gamma)*psi_comp;
-    
+    % Converting to Euler Angles
+    [yaw, pitch, roll] = quat2angle(Xk);
+
     %% Update the covariance
-    Pk = Px - K*(Pz)*K.';
+    Pk = Px_new - K*(Pz)*K.';
     
     % Store for plotting
-    PhiKalman = [PhiKalman; Xk(1)];
-    ThetaKalman = [ThetaKalman; Xk(2)];
-    PsiKalman = [PsiKalman; yaw]; 
+    PhiKalman = [PhiKalman;roll];
+    ThetaKalman = [ThetaKalman;pitch];
+    PsiKalman = [PsiKalman;yaw];
     
-    %% Plotting
+    %% Repeat for next iteration
+    states = Xk.'; % [4x1]
+    
+    [~,EigenVal2] = eig(Pk);
+    
+    if EigenVal2(EigenVal2 < 0) 
+        [Pk_new,~] = isSemiDef(Pk);
+    else 
+        Pk_new = Pk;
+    end 
+    
+    P = Pk_new;
+    
+     %% Plotting
     subplot(3,1,1);
     grid on
     plot(rad2deg(PhiKalman))
@@ -251,10 +240,6 @@ for iii = startSample:stopSample
     subplot(3,1,3);
     plot(rad2deg(PsiKalman))
     title("Z-Axis Rotation")
-    
-    %% Repeat for next iteration
-    states = Xk;
-    P = Pk;
 end 
 
 fprintf("Storing Data\n")
@@ -364,6 +349,93 @@ function [Offsets, Scale] = CalibrateMag(imu)
     fprintf("Magnetometer Calibration Complete\n")
 end 
 
+function qk = stateProp(sigmaPoints, dt, omega, wk)
+
+possibleStates = zeros(size(sigmaPoints));
+
+wx = omega(1);
+wy = omega(2);
+wz = omega(3);
+
+qdot = (0.5 * dt) * [0 -wx -wy -wz;
+                     wx  0  wz -wy;
+                     wy -wz  0  wx;
+                     wz  wy -wx  0];          
+                 
+I = eye(length(qdot));
+
+F = (I + qdot); 
+
+j = size(sigmaPoints);
+
+% Propagating each column in my array of sigma points
+
+    for i = 1:j(2)
+        possibleStates(:,i) = F*sigmaPoints(:,i) + wk;
+    end 
+
+flipArray = quatnormalize(possibleStates.');
+
+possibleStates = flipArray.'; 
+    
+% Adding noise
+
+qk = possibleStates;
+
+end 
+
+function model = MeasurementModel(sigmaPoints,beta)
+
+newMeasurementSigmaPoints = zeros(6,length(sigmaPoints));
+    
+    for i = 1:length(newMeasurementSigmaPoints)
+        
+        qs = sigmaPoints(1,i);
+        qx = sigmaPoints(2,i);
+        qy = sigmaPoints(3,i);
+        qz = sigmaPoints(4,i);
+        
+        newMeasurementSigmaPoints(1,i) = -2*(qx*qz - qy*qs);
+        newMeasurementSigmaPoints(2,i) = -2*(qy*qz + qx*qs);
+        newMeasurementSigmaPoints(3,i) = -(qs^2 -qx^2 - qy^2 + qz^2);
+        newMeasurementSigmaPoints(4,i) = (qs^2 + qx^2 - qy^2 - qz^2)*cos(beta) + 2*(qx*qz - qy*qs)*sin(beta);
+        newMeasurementSigmaPoints(5,i) = 2*(qx*qy - qz*qs)*cos(beta) + 2*(qy*qz + qx*qs)*sin(beta);
+        newMeasurementSigmaPoints(6,i) = 2*(qx*qz + qy*qs)*cos(beta) + (qs^2 -qx^2 - qy^2 + qz^2)*sin(beta);
+    end 
+
+    model = newMeasurementSigmaPoints;
+end 
+
+function [P2,iter] = isSemiDef(P1)
+
+[EigenVec,EigenVal] = eig(P1);
+
+iter = 0;
+
+
+    while EigenVal(EigenVal < 0) 
+        
+        % if there are negative eigenvalues, flip the sign
+        EigenVal(EigenVal < 0) = EigenVal(EigenVal < 0) * -1; 
+
+        % recalculating the covariance matrix with new eigenvalues
+        P2 = EigenVec*EigenVal*EigenVec.';
+        
+        % checking the condition
+        [EigenVec,EigenVal] = eig(P2);
+
+        iter = iter + 1;
+        
+        % if there aren't anymore, finish
+        if EigenVal(EigenVal > 0) 
+            break
+        end 
+        
+    end 
+
+
+end 
+
 function ExportSheet(fileName, filePath, table)
 
 fileToSave = strcat(filePath, fileName);
@@ -371,17 +443,3 @@ fileToSave = strcat(filePath, fileName);
 writetable(table, fileToSave);
 
 end 
-
-function B = rotationMatrix(A, phi, theta, psi)
-
-X = [1 0 0; 0 cos(phi) sin(phi); 0 -sin(phi) cos(phi)];
-
-Y = [cos(theta) 0 -sin(theta); 0 1 0; sin(theta) 0 cos(theta)];
-
-Z = [cos(psi) sin(psi) 0; -sin(psi) cos(psi) 0; 0 0 1];
-
-R = (X*Y)*Z;
-
-B = R*A;
-
- end 

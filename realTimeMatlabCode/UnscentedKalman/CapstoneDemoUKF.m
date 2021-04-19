@@ -11,7 +11,7 @@
 %   8. Find μz (unscented transform)
 %   9. Take measurement (z)
 %  10. Find Pz (measurement covariance)
-%  11. Calculate the cross - covariance (Pxz)
+%  11. Calculate the cross covariance (Pxz)
 %  12. Determine the kalman gain (K)
 %  13. Use the kalman gain to find the estimation (posterior)
 %  14. Update the covariance 
