@@ -57,9 +57,9 @@ def EulerRate(phi, theta, Gyro):
 
 
 def AccelModel(phi, theta):
-    Accel = np.array([[-np.sin(theta)],
-                      [np.cos(theta) * np.sin(phi)],
-                      [np.cos(theta) * np.cos(phi)]], dtype=float)
+    Accel = np.array([[np.sin(theta)],
+                      [-np.cos(theta) * np.sin(phi)],
+                      [-np.cos(theta) * np.cos(phi)]], dtype=float)
 
     return np.reshape(Accel, (3, 1))
 
@@ -68,6 +68,8 @@ def MeasurementJacobian(phi, theta):
     J = np.array([[0, -np.cos(theta), 0],
                   [np.cos(theta) * np.cos(phi), -np.sin(theta) * np.sin(phi), 0],
                   [-np.cos(theta) * np.sin(phi), -np.sin(theta) * np.cos(phi), 0]], dtype=float)
+
+    J *= -1
 
     return np.reshape(J, (3, 3))
 
