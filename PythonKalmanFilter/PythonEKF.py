@@ -64,7 +64,7 @@ Qk *= GyroSpectralDensity  # arbitrary
 
 # Measurement noise
 Rk = np.identity(Pk_1.shape[0])
-Rk *= 0.085  # after doing some testing
+Rk *= 0.22  # after doing some testing
 
 # Measurement Matrix
 H = np.identity(Pk_1.shape[0])
