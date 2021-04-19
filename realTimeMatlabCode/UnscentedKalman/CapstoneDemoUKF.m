@@ -20,7 +20,7 @@
 % arduinosetup();
 
 %% Name the file to save
-fileName = '/Trial4.xlsx';
+fileName = '/newTrial.xlsx';
 
 filePath = '/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/realTimeMatlabCode/UnscentedKalman';
 
@@ -139,16 +139,16 @@ for iii = startSample:stopSample
     
     % Measurement Model Accelerometer
     
-    % |ax|     |    -sin(θ)    |
-    % |ay|  =  |  cos(θ)sin(φ) |
-    % |az|     |  cos(θ)cos(φ) |
+    % |ax|     |     sin(θ)    |
+    % |ay|  =  | -cos(θ)sin(φ) |
+    % |az|     | -cos(θ)cos(φ) |
  
     newMeasurementSigmaPoints = zeros(size(newSigmaPoints));
     
     for i = 1:length(newMeasurementSigmaPoints)
-        newMeasurementSigmaPoints(1,i) = -sin(newSigmaPoints(2,i));
-        newMeasurementSigmaPoints(2,i) = cos(newSigmaPoints(2,i))*sin(newSigmaPoints(1,i)); 
-        newMeasurementSigmaPoints(3,i) = cos(newSigmaPoints(2,i))*cos(newSigmaPoints(1,i));
+        newMeasurementSigmaPoints(1,i) = sin(newSigmaPoints(2,i));
+        newMeasurementSigmaPoints(2,i) = - cos(newSigmaPoints(2,i))*sin(newSigmaPoints(1,i)); 
+        newMeasurementSigmaPoints(3,i) = - cos(newSigmaPoints(2,i))*cos(newSigmaPoints(1,i));
     end 
 
     Mu_z = newMeasurementSigmaPoints*Wm;
@@ -181,14 +181,17 @@ for iii = startSample:stopSample
     
     %% Plotting
     
-    subplot(2,1,1);
-    grid on
+    subplot(3,1,1);
     plot(rad2deg(PhiKalman))
     title("X-Axis Rotation")
     
-    subplot(2,1,2);
+    subplot(3,1,2);
     plot(rad2deg(ThetaKalman))
     title("Y-Axis Rotation")
+
+    subplot(3,1,3);
+    plot(rad2deg(PsiKalman))
+    title("Z-Axis Rotation")
     
     %% Repeat for next iteration
     states = Xk;

@@ -2,7 +2,7 @@
 % arduinosetup();
 
 %% Name the file to save
-fileName = '/inLab4.xlsx';
+fileName = '/newTrial.xlsx';
 
 filePath = '/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/realTimeMatlabCode/ExtendedKalman/EKF_6DOF_Files';
 
@@ -158,14 +158,17 @@ for i = startSample:stopSample
     
     %% Plotting
     
-    subplot(2,1,1);
+    subplot(3,1,1);
     plot(rad2deg(PhiKalman))
     title("X-Axis Rotation")
     
-    subplot(2,1,2);
+    subplot(3,1,2);
     plot(rad2deg(ThetaKalman))
     title("Y-Axis Rotation")
 
+    subplot(3,1,3);
+    plot(rad2deg(PsiKalman))
+    title("Z-Axis Rotation")
   
     % Redefining for next iteration
     Xk_1 = Xk;
@@ -261,14 +264,15 @@ H = [0 -cos(theta) 0;
     cos(theta)*cos(phi) -sin(theta)*sin(phi) 0; 
     -cos(theta)*sin(phi) -sin(theta)*cos(phi) 0];
 
+H = -1*H;
 end 
 
 function [ax,ay,az] = AccelModel(Phi, Theta)
 
-ax = - sin(Theta);
+ax = sin(Theta);
 
-ay = cos(Theta)*sin(Phi);
+ay = - cos(Theta)*sin(Phi);
 
-az = cos(Theta)*cos(Phi);
+az = - cos(Theta)*cos(Phi);
 end 
 

@@ -2,7 +2,7 @@
 % arduinosetup();
 
 %% Name the file to save
-fileName = '/AHRS_Trial3.xlsx';
+fileName = '/AHRS_Trial4.xlsx';
 
 filePath = '/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/realTimeMatlabCode/ExtendedKalman/EKF_9DOF_Files';
 
