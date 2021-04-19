@@ -2,7 +2,7 @@
 % arduinosetup();
 
 %% Name the file to save
-fileName = '/newTrial.xlsx';
+fileName = '/newTrial3.xlsx';
 
 filePath = '/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/realTimeMatlabCode/ExtendedKalman/EKF_6DOF_Files';
 
@@ -67,7 +67,7 @@ Wk = 0;
 Qk = eye(size(Pk_1))*GyroSpectralDensity;
 
 % Measurement noise
-Rk = eye(size(Pk_1))*0.085;
+Rk = eye(size(Pk_1))*0.22;
 
 H = eye(size(Pk_1));
 
