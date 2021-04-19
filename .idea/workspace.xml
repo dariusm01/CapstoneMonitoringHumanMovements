@@ -1,10 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="6335fef9-619b-4461-ab91-8d971d1ea536" name="Default Changelist" comment="added the lab testing data">
+    <list default="true" id="6335fef9-619b-4461-ab91-8d971d1ea536" name="Default Changelist" comment="edited the measurement noise covariance">
+      <change afterPath="$PROJECT_DIR$/realTimeMatlabCode/ExtendedKalman/EKF_6DOF_Files/newTrial2.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/realTimeMatlabCode/ExtendedKalman/EKF_6DOF_Files/newTrial3.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/realTimeMatlabCode/UnscentedKalman/CapstoneDemoUKF.asv" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/realTimeMatlabCode/UnscentedKalman/newTrial2.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/realTimeMatlabCode/UnscentedKalman/newTrial3.xlsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PythonKalmanFilter/PythonEKF.py" beforeDir="false" afterPath="$PROJECT_DIR$/PythonKalmanFilter/PythonEKF.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PythonKalmanFilter/UsefulFunctions.py" beforeDir="false" afterPath="$PROJECT_DIR$/PythonKalmanFilter/UsefulFunctions.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/realTimeMatlabCode/ExtendedKalman/CapstoneDemoEKF.m" beforeDir="false" afterPath="$PROJECT_DIR$/realTimeMatlabCode/ExtendedKalman/CapstoneDemoEKF.m" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/realTimeMatlabCode/UnscentedKalman/CapstoneDemoUKF.m" beforeDir="false" afterPath="$PROJECT_DIR$/realTimeMatlabCode/UnscentedKalman/CapstoneDemoUKF.m" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -30,12 +35,15 @@
     <option name="selectedIndex" value="1" />
   </component>
   <component name="ProjectId" id="1qnv1n9GllUvLeyMFdpUKFE8cQL" />
-  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
   <component name="PropertiesComponent">
+    <property name="ASKED_ADD_EXTERNAL_FILES" value="true" />
     <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
@@ -107,7 +115,14 @@
       <option name="project" value="LOCAL" />
       <updated>1617739236689</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="edited the measurement noise covariance">
+      <created>1618831068861</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1618831068861</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -123,9 +138,11 @@
     <option name="oldMeFiltersMigrated" value="true" />
   </component>
   <component name="VcsManagerConfiguration">
+    <option name="ADD_EXTERNAL_FILES_SILENTLY" value="true" />
     <MESSAGE value="Updated the spacing" />
     <MESSAGE value="got rid of 1st order PNC" />
     <MESSAGE value="added the lab testing data" />
-    <option name="LAST_COMMIT_MESSAGE" value="added the lab testing data" />
+    <MESSAGE value="edited the measurement noise covariance" />
+    <option name="LAST_COMMIT_MESSAGE" value="edited the measurement noise covariance" />
   </component>
 </project>

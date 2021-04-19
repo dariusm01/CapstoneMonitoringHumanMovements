@@ -20,7 +20,7 @@
 % arduinosetup();
 
 %% Name the file to save
-fileName = '/newTrial.xlsx';
+fileName = '/newTrial3.xlsx';
 
 filePath = '/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/realTimeMatlabCode/UnscentedKalman';
 
@@ -40,7 +40,7 @@ imu = mpu6050(a,'SamplesPerRead', 100);
 dt = 1/100;
 
 startSample = 1;
-stopSample = 1500;
+stopSample = 3000;
 
 accel = zeros(stopSample, 3);   % [m/s^2]
 gyro = zeros(stopSample, 3);    % [rad/s]
@@ -81,7 +81,7 @@ Wk = 0;
 
 Qk = eye(size(P))*GyroSpectralDensity;
 
-Rk = eye(size(P))*0.085;
+Rk = eye(size(P))*0.22;
 
 %% Values we want to plot 
 
@@ -107,6 +107,12 @@ for iii = startSample:stopSample
     AccelX = accel(iii,2);
     AccelY = accel(iii,1);
     AccelZ = -accel(iii,3);
+    
+    accelMag = norm([AccelX AccelY AccelZ]);
+    
+    AccelX = AccelX/accelMag;
+    AccelY = AccelY/accelMag;
+    AccelZ = AccelZ/accelMag;
     
     %% First, gather sigma points
 
