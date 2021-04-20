@@ -2,7 +2,7 @@
 % arduinosetup();
 
 %% Name the file to save
-fileName = '/QuaternionMovingTrial_2.xlsx';
+fileName = '/QuaternionStandingTrial_3.xlsx';
 
 filePath = '/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/realTimeMatlabCode/UnscentedKalman/UKF_9DOF';
 
@@ -13,12 +13,12 @@ port = '/dev/cu.usbserial-AB0L9PP9';
 board = 'Nano3';
 a = arduino(port,board);
 
-imu = mpu9250(a,'SamplesPerRead', 100);
+imu = mpu9250(a,'SampleRate', 100);
 
-dt = 1/100;
+dt = 1/(imu.SampleRate);
 
 startSample = 1;
-stopSample = 3000;
+stopSample = 1500;
 
 accel = zeros(stopSample, 3);   % [m/s^2]
 gyro = zeros(stopSample, 3);    % [rad/s]
@@ -64,12 +64,11 @@ Qk = eye(size(P))*GyroSpectralDensity;
 
 Rk = eye(6)*0.045;
 
-% Magnetometer variances (found after some trials)
-Rk(4,4) = 2.0874;
+Rk(4,4) = 0.1;
 
-Rk(5,5) = 38.2628;
+Rk(5,5) = 0.1;
 
-Rk(6,6) = 28.6100;
+Rk(6,6) = 0.1;
 
 %% Values we want to plot 
 
@@ -78,6 +77,9 @@ ThetaKalman = [];
 PsiKalman = [];
 
 % Magnetic declination angle
+
+% https://www.ngdc.noaa.gov/geomag/calculators/magcalc.shtml
+
 magDip = dms2degrees([-11 8 25]); % -11° 8' 25" using my coordinates
 
 magDip = deg2rad(magDip);
