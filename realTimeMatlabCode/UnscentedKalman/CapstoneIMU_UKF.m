@@ -231,7 +231,7 @@ function [OSX,OSY,OSZ] = calibrateGyro(imu)
     
     buffer = zeros(200, 3);
     
-   for j = 1:length(buffer)*5 % Throwing out first 1000 readings
+   for j = 1:length(buffer)*2 % Throwing out first 400 readings
        [~,~] = readAngularVelocity(imu);
    end 
    
@@ -256,7 +256,7 @@ fprintf("Please do not move sensor while calibrating the accelerometer\n")
     
     buffer = zeros(200, 3);
     
-   for j = 1:length(buffer)*5 % Throwing out first 1000 readings
+   for j = 1:length(buffer)*2 % Throwing out first 400 readings
        [~,~] = readAcceleration(imu);
    end 
    
