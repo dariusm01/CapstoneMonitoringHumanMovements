@@ -20,7 +20,7 @@
 % arduinosetup();
 
 %% Name the file to save
-fileName = '/newTrial3.xlsx';
+fileName = '/QuaternionMovingTrial_IMU_2.xlsx';
 
 filePath = '/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/realTimeMatlabCode/UnscentedKalman';
 
@@ -31,15 +31,12 @@ port = '/dev/cu.usbserial-AB0L9PP9';
 board = 'Nano3';
 a = arduino(port,board);
 
-% Port: '/dev/cu.usbmodem401'
-% Board: 'Mega2560'
-
 imu = mpu6050(a,'SampleRate', 100);
 
 dt = 1/(imu.SampleRate);
 
 startSample = 1;
-stopSample = 3000;
+stopSample = 1500;
 
 accel = zeros(stopSample, 3);   % [m/s^2]
 gyro = zeros(stopSample, 3);    % [rad/s]
@@ -50,16 +47,11 @@ fprintf("\n")
 
 [xOff,yOff,zOff] = calibrateAccel(imu);
 
-% Initial conditions
-Phi = 0; 
-Theta = 0;
-Psi = 0;
+fprintf("\n")
 
 fprintf("\nNow Gathering Data\n") 
 
-%% Initializing the states and covariance
-
-states = [Phi; Theta; Psi];
+states = [1;0;0;0]; % initial quaternion
 
 P = 500*eye(length(states));
 
@@ -80,7 +72,7 @@ Wk = 0;
 
 Qk = eye(size(P))*GyroSpectralDensity;
 
-Rk = eye(size(P))*0.22;
+Rk = eye(3)*0.045;
 
 %% Values we want to plot 
 
@@ -107,6 +99,8 @@ for iii = startSample:stopSample
     AccelY = accel(iii,1);
     AccelZ = -accel(iii,3);
     
+    % Normalizing 
+     
     accelMag = norm([AccelX AccelY AccelZ]);
     
     AccelX = AccelX/accelMag;
@@ -121,7 +115,8 @@ for iii = startSample:stopSample
 
     %% Then, pass the sigma points through your model (Prediction)
     % Input the epoch (dt), sigma Points, and noise (wk)
-    NewPrediction = firstOrderUKFPropagation(samplePoints, dt, Gyro, Wk);
+
+    NewPrediction = stateProp(samplePoints, dt, Gyro, Wk);
     
     %% Compute the weights 
     [Wc, Wm] = weights(NewPrediction,alpha,beta);
@@ -129,40 +124,45 @@ for iii = startSample:stopSample
     %% Perform the Unscented Transform by summing the sample mean and covariances
     %% With their respective weights to produce a new mean and covariance
 
-    Mu_x = NewPrediction*Wm; % Prior
+    mean_vec = quatnormalize((NewPrediction*Wm).'); % Prior
+    
+    Mu_x = mean_vec.';
 
     Px = PredictCovarianceUKF(NewPrediction, samplePoints, Mu_x ,Wc, Qk);
-
+    
+    [~,EigenVal] = eig(Px);
+    
+    if EigenVal(EigenVal < 0) 
+        [Px_new,~] = isSemiDef(Px);
+    else 
+        Px_new = Px;
+    end 
+        
     %% Measurements
     % First get the new sigma points from the newly calculated mean and
     % covariance
 
-    newSigmaPoints = sigmaPoints(Mu_x,Px,alpha);
+    newSigmaPoints = sigmaPoints(Mu_x,Px_new,alpha);
 
     %% Passing sigma points through non linear measurement model:
     % the measurement function converts the filter’s prior into a measurement
     
-    % Measurement Model Accelerometer
+    AccelModel = MeasurementModel(newSigmaPoints);
     
-    % |ax|     |     sin(θ)    |
-    % |ay|  =  | -cos(θ)sin(φ) |
-    % |az|     | -cos(θ)cos(φ) |
- 
-    newMeasurementSigmaPoints = zeros(size(newSigmaPoints));
+    newMeasurementSigmaPoints = AccelModel;
     
-    for i = 1:length(newMeasurementSigmaPoints)
-        newMeasurementSigmaPoints(1,i) = sin(newSigmaPoints(2,i));
-        newMeasurementSigmaPoints(2,i) = - cos(newSigmaPoints(2,i))*sin(newSigmaPoints(1,i)); 
-        newMeasurementSigmaPoints(3,i) = - cos(newSigmaPoints(2,i))*cos(newSigmaPoints(1,i));
-    end 
-
-    Mu_z = newMeasurementSigmaPoints*Wm;
+    tempMu_z = newMeasurementSigmaPoints*Wm;
+    
+    accelMuNorm = tempMu_z(1:3)/norm(tempMu_z(1:3)); % Normalizing
+    
+    Mu_z = accelMuNorm;
 
     %% Measurment covariance
     Pz = PredictCovarianceUKF(newMeasurementSigmaPoints, newSigmaPoints, Mu_z, Wc, Rk);
 
     % measurements from sensor
-    z = [AccelX; AccelY; AccelZ];
+    
+    z = [AccelX;AccelY;AccelZ];
     
     %% Cross Covariance
     Pxz = CrossCovariance(Mu_x, Mu_z, newSigmaPoints, newMeasurementSigmaPoints, Wc);
@@ -175,32 +175,45 @@ for iii = startSample:stopSample
     
     %% Update the state
     Xk = Mu_x + K*y;
+    Xk = quatnormalize(Xk.'); % [1x4]
+    
+    % Converting to Euler Angles
+    [yaw, pitch, roll] = quat2angle(Xk);
 
     %% Update the covariance
-    Pk = Px - K*(Pz)*K.';
+    Pk = Px_new - K*(Pz)*K.';
     
     % Store for plotting
-    PhiKalman = [PhiKalman; Xk(1)];
-    ThetaKalman = [ThetaKalman; Xk(2)];
-    PsiKalman = [PsiKalman; Xk(3)]; % drift
+    PhiKalman = [PhiKalman;roll];
+    ThetaKalman = [ThetaKalman;pitch];
+    PsiKalman = [PsiKalman;yaw];
+    
+    %% Repeat for next iteration
+    states = Xk.'; % [4x1]
+    
+    [~,EigenVal2] = eig(Pk);
+    
+    if EigenVal2(EigenVal2 < 0) 
+        [Pk_new,~] = isSemiDef(Pk);
+    else 
+        Pk_new = Pk;
+    end 
+    
+    P = Pk_new;
     
     %% Plotting
-    
     subplot(3,1,1);
+    grid on
     plot(rad2deg(PhiKalman))
     title("X-Axis Rotation")
     
     subplot(3,1,2);
     plot(rad2deg(ThetaKalman))
     title("Y-Axis Rotation")
-
+    
     subplot(3,1,3);
     plot(rad2deg(PsiKalman))
     title("Z-Axis Rotation")
-    
-    %% Repeat for next iteration
-    states = Xk;
-    P = Pk;
 end 
 
 fprintf("Storing Data\n")
@@ -262,6 +275,90 @@ fprintf("Please do not move sensor while calibrating the accelerometer\n")
 
 end 
 
+function qk = stateProp(sigmaPoints, dt, omega, wk)
+
+possibleStates = zeros(size(sigmaPoints));
+
+wx = omega(1);
+wy = omega(2);
+wz = omega(3);
+
+qdot = (0.5 * dt) * [0 -wx -wy -wz;
+                     wx  0  wz -wy;
+                     wy -wz  0  wx;
+                     wz  wy -wx  0];          
+                 
+I = eye(length(qdot));
+
+F = (I + qdot); 
+
+j = size(sigmaPoints);
+
+% Propagating each column in my array of sigma points
+
+    for i = 1:j(2)
+        possibleStates(:,i) = F*sigmaPoints(:,i) + wk;
+    end 
+
+flipArray = quatnormalize(possibleStates.');
+
+possibleStates = flipArray.'; 
+    
+% Adding noise
+
+qk = possibleStates;
+
+end 
+
+function model = MeasurementModel(sigmaPoints)
+
+newMeasurementSigmaPoints = zeros(3,length(sigmaPoints));
+    
+    for i = 1:length(newMeasurementSigmaPoints)
+        
+        qs = sigmaPoints(1,i);
+        qx = sigmaPoints(2,i);
+        qy = sigmaPoints(3,i);
+        qz = sigmaPoints(4,i);
+        
+        newMeasurementSigmaPoints(1,i) = -2*(qx*qz - qy*qs);
+        newMeasurementSigmaPoints(2,i) = -2*(qy*qz + qx*qs);
+        newMeasurementSigmaPoints(3,i) = -(qs^2 -qx^2 - qy^2 + qz^2);
+    end 
+
+    model = newMeasurementSigmaPoints;
+end 
+
+function [P2,iter] = isSemiDef(P1)
+
+[EigenVec,EigenVal] = eig(P1);
+
+iter = 0;
+
+
+    while EigenVal(EigenVal < 0) 
+        
+        % if there are negative eigenvalues, flip the sign
+        EigenVal(EigenVal < 0) = EigenVal(EigenVal < 0) * -1; 
+
+        % recalculating the covariance matrix with new eigenvalues
+        P2 = EigenVec*EigenVal*EigenVec.';
+        
+        % checking the condition
+        [EigenVec,EigenVal] = eig(P2);
+
+        iter = iter + 1;
+        
+        % if there aren't anymore, finish
+        if EigenVal(EigenVal > 0) 
+            break
+        end 
+        
+    end 
+
+
+end 
+
 function ExportSheet(fileName, filePath, table)
 
 fileToSave = strcat(filePath, fileName);
@@ -269,4 +366,3 @@ fileToSave = strcat(filePath, fileName);
 writetable(table, fileToSave);
 
 end 
-
