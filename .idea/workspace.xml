@@ -2,14 +2,11 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="6335fef9-619b-4461-ab91-8d971d1ea536" name="Default Changelist" comment="edited the measurement noise covariance">
-      <change afterPath="$PROJECT_DIR$/realTimeMatlabCode/ExtendedKalman/EKF_6DOF_Files/newTrial2.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/realTimeMatlabCode/ExtendedKalman/EKF_6DOF_Files/newTrial3.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/realTimeMatlabCode/UnscentedKalman/CapstoneDemoUKF.asv" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/realTimeMatlabCode/UnscentedKalman/newTrial2.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/realTimeMatlabCode/UnscentedKalman/newTrial3.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/realTimeMatlabCode/UnscentedKalman/UKF_9DOF/QuaternionStandingTrial_4.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/realTimeMatlabCode/UnscentedKalman/UKF_9DOF/QuaternionStandingTrial_5.xlsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/realTimeMatlabCode/ExtendedKalman/CapstoneDemoEKF.m" beforeDir="false" afterPath="$PROJECT_DIR$/realTimeMatlabCode/ExtendedKalman/CapstoneDemoEKF.m" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/realTimeMatlabCode/UnscentedKalman/CapstoneDemoUKF.m" beforeDir="false" afterPath="$PROJECT_DIR$/realTimeMatlabCode/UnscentedKalman/CapstoneDemoUKF.m" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/realTimeMatlabCode/ExtendedKalman/EKF_6DOF_Files/newTrial3.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/realTimeMatlabCode/ExtendedKalman/EKF_6DOF_Files/newTrial3.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/realTimeMatlabCode/UnscentedKalman/CapstoneAHRS_UKF.m" beforeDir="false" afterPath="$PROJECT_DIR$/realTimeMatlabCode/UnscentedKalman/CapstoneAHRS_UKF.m" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
