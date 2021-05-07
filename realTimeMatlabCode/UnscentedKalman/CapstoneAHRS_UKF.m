@@ -2,7 +2,7 @@
 % arduinosetup();
 
 %% Name the file to save
-fileName = '/QuaternionStandingTrial_3.xlsx';
+fileName = '/QuaternionDemo_FinalPresentation.xlsx';
 
 filePath = '/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/realTimeMatlabCode/UnscentedKalman/UKF_9DOF';
 
@@ -18,7 +18,7 @@ imu = mpu9250(a,'SampleRate', 100);
 dt = 1/(imu.SampleRate);
 
 startSample = 1;
-stopSample = 1500;
+stopSample = 1000;
 
 accel = zeros(stopSample, 3);   % [m/s^2]
 gyro = zeros(stopSample, 3);    % [rad/s]

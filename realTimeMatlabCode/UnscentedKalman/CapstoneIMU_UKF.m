@@ -20,7 +20,7 @@
 % arduinosetup();
 
 %% Name the file to save
-fileName = '/QuaternionMovingTrial_IMU_2.xlsx';
+fileName = '/validation.xlsx';
 
 filePath = '/Users/dariusmensah/Documents/CapstoneMonitoringHumanMovements/realTimeMatlabCode/UnscentedKalman';
 
@@ -36,7 +36,7 @@ imu = mpu6050(a,'SampleRate', 100);
 dt = 1/(imu.SampleRate);
 
 startSample = 1;
-stopSample = 1500;
+stopSample = 800;
 
 accel = zeros(stopSample, 3);   % [m/s^2]
 gyro = zeros(stopSample, 3);    % [rad/s]
@@ -214,6 +214,7 @@ for iii = startSample:stopSample
     subplot(3,1,3);
     plot(rad2deg(PsiKalman))
     title("Z-Axis Rotation")
+
 end 
 
 fprintf("Storing Data\n")
